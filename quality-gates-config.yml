@@ -1,0 +1,24 @@
+# Quality Gates Configuration
+# Feature flags matching org patterns (bibliomnomnom, bitterblossom)
+
+gates:
+  lint: true
+  typecheck: true
+  unit-tests: true
+  e2e-tests: true
+  build: true
+  cerberus-review: true
+
+thresholds:
+  parsers:
+    lines: 95
+    functions: 95
+    branches: 90
+  services:
+    lines: 80
+    functions: 80
+    branches: 75
+  routes:
+    lines: 75
+    functions: 75
+    branches: 70

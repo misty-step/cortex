@@ -1,0 +1,35 @@
+# Lefthook Configuration
+# Quality gates for Cortex v2
+# Docs: https://lefthook.dev/
+
+min_version: 2.0.0
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "**/*.{ts,tsx,js,jsx}"
+      run: pnpm eslint --fix --max-warnings 0 --no-warn-ignored {staged_files}
+      stage_fixed: true
+
+    format:
+      glob: "**/*.{ts,tsx,js,jsx,json,css}"
+      run: pnpm prettier --write {staged_files}
+      stage_fixed: true
+
+    typecheck:
+      run: pnpm tsc --noEmit
+
+pre-push:
+  parallel: true
+  commands:
+    test:
+      run: pnpm test
+
+    build:
+      run: pnpm build
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}
