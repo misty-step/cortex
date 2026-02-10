@@ -1,15 +1,21 @@
-// ─── Gateway Error Log Parser ───────────────────────────────────────────────
-// Parses ~/.openclaw/logs/gateway.err.log format
-// Implemented in PR 2
-
 import type { ParsedLogEntry } from "../types.js";
 
-/**
- * Parse a line from gateway.err.log.
- * Format: "2026-02-08T14:29:47.758Z error message"
- * All entries are error-level.
- */
-export function parseGatewayErrLine(_line: string): ParsedLogEntry | null {
-  // Implemented in PR 2
-  return null;
+export function parseGatewayErrLine(line: string): ParsedLogEntry | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Format: "2026-02-08T14:29:47.758Z error message"
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
+  if (!match) return null;
+
+  const [, time, msg] = match;
+  if (!time || !msg) return null;
+
+  return {
+    time,
+    level: "error",
+    subsystem: "gateway",
+    message: msg.trim(),
+    ts: new Date(time).getTime(),
+  };
 }

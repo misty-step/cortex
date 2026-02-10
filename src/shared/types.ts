@@ -46,6 +46,21 @@ export interface Session {
   ageMs: number;
 }
 
+export type AgentSessionStatus = "active" | "idle" | "stale" | "aborted" | "unknown";
+
+// /api/sessions response shape (OpenClaw agent session summary)
+export interface AgentSessionSummary {
+  agent_id: string;
+  session_key: string;
+  status: AgentSessionStatus;
+  start_time: string | null; // ISO timestamp
+  last_activity: string | null; // ISO timestamp
+  current_task: string | null;
+}
+
+// /api/sessions returns a plain array.
+export type SessionsResponse = AgentSessionSummary[];
+
 export interface CronJob {
   name: string;
   agentId: string;

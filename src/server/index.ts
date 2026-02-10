@@ -3,25 +3,33 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { serve } from "@hono/node-server";
 import { config } from "./config.js";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { api } from "./routes/api.js";
+import { sse } from "./routes/sse.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_ROOT = path.join(__dirname, "../client");
 
 const app = new Hono();
 
 // Middleware
 app.use("*", cors());
 
-// Health check
-app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
+// Static files (frontend)
+app.use("/*", serveStatic({ root: CLIENT_ROOT }));
 
-// Placeholder routes — implemented in PR 2 & 3
-app.get("/api/health", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/sessions", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/logs", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/crons", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/models", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/errors", (c) => c.json({ status: "not_implemented" }));
-app.get("/api/events", (c) => c.json({ status: "not_implemented" }));
+// API routes
+app.route("/api", api);
+
+// SSE events
+app.route("/api", sse);
+
+// Ping endpoint
+app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
 
 console.log(`Cortex v2 starting on http://localhost:${config.port}`);
 

@@ -1,12 +1,47 @@
-// ─── Sessions ───────────────────────────────────────────────────────────────
-// Session list with token usage, search, sort
-// Implemented in PR 5
+import { useEffect, useState } from "react";
+import { DataTable } from "../components/DataTable";
+import { StatusBadge } from "../components/StatusBadge";
 
 export function Sessions() {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/sessions")
+      .then(r => r.json())
+      .then(data => {
+        setSessions(Array.isArray(data) ? data : []);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="p-4">Loading...</div>;
+
+  // Format relative time
+  const formatRelative = (iso: string | null) => {
+    if (!iso) return "—";
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  };
+
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-[var(--fg2)] mb-4">Sessions</h2>
-      <p className="text-[var(--fg3)]">Session view implemented in PR 5.</p>
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-4">Agent Sessions</h2>
+      <DataTable
+        columns={[
+          { key: "agent_id", header: "Agent" },
+          { key: "session_key", header: "Session", render: (v: string) => (
+            <span className="font-mono text-xs" title={v}>{v.split(":").slice(-2).join(":")}</span>
+          )},
+          { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
+          { key: "model", header: "Model", render: (v: string) => v ? v.split("/").pop() : "—" },
+          { key: "last_activity", header: "Last Activity", render: (v: string) => formatRelative(v) },
+        ]}
+        data={sessions}
+      />
     </div>
   );
 }

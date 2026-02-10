@@ -1,12 +1,36 @@
-// ─── SSE Route ──────────────────────────────────────────────────────────────
-// Server-Sent Events endpoint for real-time dashboard updates
-// Implemented in PR 3
-
 import { Hono } from "hono";
 
 const sse = new Hono();
 
-// Placeholder — full implementation in PR 3
-sse.get("/events", (c) => c.json({ status: "not_implemented" }));
+sse.get("/events", async (c) => {
+  c.header("Content-Type", "text/event-stream");
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const send = (data: unknown) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
+
+      // Send initial connection event
+      send({ type: "connected", timestamp: Date.now() });
+
+      // Heartbeat every 30 seconds
+      const interval = setInterval(() => {
+        send({ type: "heartbeat", timestamp: Date.now() });
+      }, 30000);
+
+      // Cleanup on close
+      c.req.raw.signal.addEventListener("abort", () => {
+        clearInterval(interval);
+        controller.close();
+      });
+    },
+  });
+
+  return c.body(stream);
+});
 
 export { sse };

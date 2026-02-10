@@ -4,7 +4,6 @@ import { Overview } from "./views/Overview";
 import { Sessions } from "./views/Sessions";
 import { Logs } from "./views/Logs";
 import { Crons } from "./views/Crons";
-import { Models } from "./views/Models";
 import { Errors } from "./views/Errors";
 import { SSEProvider } from "./components/SSEProvider";
 
@@ -18,7 +17,6 @@ export function App() {
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/crons" element={<Crons />} />
-            <Route path="/models" element={<Models />} />
             <Route path="/errors" element={<Errors />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
