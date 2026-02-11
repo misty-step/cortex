@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Overview } from "./views/Overview";
+import { Factory } from "./views/Factory";
 import { Sessions } from "./views/Sessions";
 import { Logs } from "./views/Logs";
 import { Crons } from "./views/Crons";
@@ -13,7 +14,9 @@ export function App() {
       <SSEProvider>
         <Routes>
           <Route element={<Layout />}>
-            <Route path="/" element={<Overview />} />
+            <Route path="/" element={<Factory />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/factory" element={<Navigate to="/" replace />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/crons" element={<Crons />} />

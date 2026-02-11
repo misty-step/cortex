@@ -3,16 +3,18 @@ import { useSSE } from "../hooks/useSSE";
 import { SearchBar } from "./SearchBar";
 
 const navItems = [
-  { path: "/", label: "Overview" },
+  { path: "/", label: "Factory" },
   { path: "/sessions", label: "Sessions" },
   { path: "/logs", label: "Logs" },
   { path: "/crons", label: "Cron Jobs" },
   { path: "/errors", label: "Errors" },
+  // Legacy/diagnostic view
+  { path: "/overview", label: "Overview" },
 ];
 
 export function Layout() {
   const { connected } = useSSE();
-  
+
   return (
     <div className="flex h-screen">
       <nav className="w-[200px] shrink-0 border-r border-[var(--border)] bg-[var(--bg2)] flex flex-col">
@@ -42,16 +44,17 @@ export function Layout() {
         <div className="mt-auto p-3 text-[11px] border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
             <span className="text-[var(--fg3)]">Cortex v2.0.0</span>
-            <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} title={connected ? 'Connected' : 'Disconnected'} />
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
+              title={connected ? "Connected" : "Disconnected"}
+            />
           </div>
         </div>
       </nav>
       <main className="flex-1 overflow-y-auto">
         <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[var(--bg)] border-b border-[var(--border)]">
           <SearchBar placeholder="Search..." />
-          <div className="text-sm text-[var(--fg3)]">
-            {connected ? 'Live' : 'Offline'}
-          </div>
+          <div className="text-sm text-[var(--fg3)]">{connected ? "Live" : "Offline"}</div>
         </header>
         <div className="p-5">
           <Outlet />

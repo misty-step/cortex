@@ -2,15 +2,26 @@ import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 
+type CronRow = {
+  id: string;
+  name: string;
+  agent_id: string;
+  schedule: string;
+  last_run: string | null;
+  next_run: string | null;
+  status: string;
+  last_status: string;
+};
+
 export function Crons() {
-  const [crons, setCrons] = useState<any[]>([]);
+  const [crons, setCrons] = useState<CronRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/crons")
-      .then(r => r.json())
-      .then(data => {
-        setCrons(data);
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        setCrons(Array.isArray(data) ? (data as CronRow[]) : []);
         setLoading(false);
       });
   }, []);
@@ -32,23 +43,49 @@ export function Crons() {
       <h2 className="text-2xl font-bold mb-4">Cron Jobs ({crons.length})</h2>
       <DataTable
         columns={[
-          { key: "name", header: "Name", render: (v: string, row: any) => (
-            <div>
-              <div className="font-medium">{v}</div>
-              <div className="text-xs text-[var(--fg3)] font-mono">{row.id?.slice(0, 8)}</div>
-            </div>
-          )},
+          {
+            key: "name",
+            header: "Name",
+            render: (v, row) => {
+              const name = typeof v === "string" ? v : "";
+              const id = typeof row["id"] === "string" ? row["id"].slice(0, 8) : "";
+              return (
+                <div>
+                  <div className="font-medium">{name}</div>
+                  <div className="text-xs text-[var(--fg3)] font-mono">{id}</div>
+                </div>
+              );
+            },
+          },
           { key: "agent_id", header: "Agent" },
-          { key: "schedule", header: "Schedule", render: (v: string) => (
-            <code className="text-xs bg-[var(--bg2)] px-1 rounded">{v}</code>
-          )},
-          { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
-          { key: "last_status", header: "Last Run", render: (v: string, row: any) => (
-            <div>
-              <StatusBadge status={v === "ok" ? "ok" : v === "error" ? "error" : "warn"} />
-              <div className="text-xs text-[var(--fg3)] mt-1">{formatRelative(row.last_run)}</div>
-            </div>
-          )},
+          {
+            key: "schedule",
+            header: "Schedule",
+            render: (v) => (
+              <code className="text-xs bg-[var(--bg2)] px-1 rounded">{String(v ?? "")}</code>
+            ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            render: (v) => <StatusBadge status={typeof v === "string" ? v : String(v ?? "")} />,
+          },
+          {
+            key: "last_status",
+            header: "Last Run",
+            render: (v, row) => {
+              const status = typeof v === "string" ? v : "";
+              const lastRunIso = typeof row["last_run"] === "string" ? row["last_run"] : null;
+              return (
+                <div>
+                  <StatusBadge
+                    status={status === "ok" ? "ok" : status === "error" ? "error" : "warn"}
+                  />
+                  <div className="text-xs text-[var(--fg3)] mt-1">{formatRelative(lastRunIso)}</div>
+                </div>
+              );
+            },
+          },
         ]}
         data={crons}
       />

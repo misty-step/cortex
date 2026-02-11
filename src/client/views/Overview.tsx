@@ -2,31 +2,44 @@ import { useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { DataTable } from "../components/DataTable";
 
+type HealthStatus = {
+  status: string;
+  gateway: string;
+  timestamp: number;
+};
+
+type SpriteRow = {
+  name: string;
+  status: string;
+  agent_count: number;
+  last_seen: string | null;
+};
+
 export function Overview() {
-  const [health, setHealth] = useState<any>(null);
-  const [sprites, setSprites] = useState<any[]>([]);
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [sprites, setSprites] = useState<SpriteRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/health").then(r => r.json()),
-      fetch("/api/sprites").then(r => r.json()),
-    ]).then(([h, s]) => {
-      setHealth(h);
-      setSprites(s);
+      fetch("/api/health").then((r) => r.json()),
+      fetch("/api/sprites").then((r) => r.json()),
+    ]).then(([h, s]: [unknown, unknown]) => {
+      setHealth(h as HealthStatus);
+      setSprites(Array.isArray(s) ? (s as SpriteRow[]) : []);
       setLoading(false);
     });
   }, []);
 
   if (loading) return <div className="p-4">Loading...</div>;
 
-  const runningSprites = sprites.filter(s => s.status === "running").length;
-  const idleSprites = sprites.filter(s => s.status === "idle").length;
+  const runningSprites = sprites.filter((s) => s.status === "running").length;
+  const idleSprites = sprites.filter((s) => s.status === "idle").length;
 
   return (
     <div className="p-4 space-y-6">
       <h2 className="text-2xl font-bold text-[var(--fg)]">Factory Overview</h2>
-      
+
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-[var(--bg2)] p-4 rounded-lg">
           <div className="text-sm text-[var(--fg3)]">Gateway</div>
@@ -49,7 +62,11 @@ export function Overview() {
         <DataTable
           columns={[
             { key: "name", header: "Sprite" },
-            { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
+            {
+              key: "status",
+              header: "Status",
+              render: (v) => <StatusBadge status={typeof v === "string" ? v : String(v ?? "")} />,
+            },
             { key: "agent_count", header: "Agents" },
             { key: "last_seen", header: "Last Seen" },
           ]}

@@ -1,15 +1,21 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
 
+type ErrorRow = {
+  timestamp: string;
+  level: string;
+  message: string;
+};
+
 export function Errors() {
-  const [errors, setErrors] = useState<any[]>([]);
+  const [errors, setErrors] = useState<ErrorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/errors")
-      .then(r => r.json())
-      .then(data => {
-        setErrors(Array.isArray(data) ? data : []);
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        setErrors(Array.isArray(data) ? (data as ErrorRow[]) : []);
         setLoading(false);
       });
   }, []);

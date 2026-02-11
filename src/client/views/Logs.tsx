@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
 
+type LogRow = {
+  timestamp: string;
+  level: string;
+  source?: string;
+  message: string;
+};
+
 export function Logs() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("");
 
   useEffect(() => {
     const url = level ? `/api/logs?level=${level}` : "/api/logs";
     fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        setLogs(Array.isArray(data) ? data : []);
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        setLogs(Array.isArray(data) ? (data as LogRow[]) : []);
         setLoading(false);
       });
   }, [level]);
@@ -22,9 +29,9 @@ export function Logs() {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Gateway Logs</h2>
-        <select 
-          value={level} 
-          onChange={e => setLevel(e.target.value)}
+        <select
+          value={level}
+          onChange={(e) => setLevel(e.target.value)}
           className="bg-[var(--bg2)] border rounded px-2 py-1"
         >
           <option value="">All Levels</option>
