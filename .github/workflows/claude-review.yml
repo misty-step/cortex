@@ -33,7 +33,9 @@ jobs:
         with:
           perspective: ${{ matrix.perspective }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kimi-api-key: ${{ secrets.MOONSHOT_API_KEY }}
+          # Cerberus composite actions do not receive step-level env; pass via `with:`.
+          api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          model: openrouter/moonshotai/kimi-k2.5
 
   verdict:
     name: "Council Verdict"
