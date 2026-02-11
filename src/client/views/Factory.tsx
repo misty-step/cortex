@@ -22,6 +22,7 @@ type FactoryResponse = {
   fleet?:
     | {
         summary?: unknown;
+        sprites?: FactoryFleetRow[];
         rows?: FactoryFleetRow[];
       }
     | FactoryFleetRow[];
@@ -97,7 +98,12 @@ function formatBool(v: unknown): string {
 function extractFleetRows(data: FactoryResponse | null): FactoryFleetRow[] {
   if (!data?.fleet) return [];
   if (Array.isArray(data.fleet)) return data.fleet;
-  if (Array.isArray(data.fleet.rows)) return data.fleet.rows;
+
+  if (typeof data.fleet === "object" && data.fleet && !Array.isArray(data.fleet)) {
+    if (Array.isArray(data.fleet.sprites)) return data.fleet.sprites;
+    if (Array.isArray(data.fleet.rows)) return data.fleet.rows;
+  }
+
   return [];
 }
 
@@ -123,6 +129,17 @@ function extractOpenByRepo(prs: FactoryResponse["prs"]): Record<string, number> 
       const n =
         typeof count === "number" ? count : typeof count === "string" ? Number(count) : Number.NaN;
       if (!Number.isNaN(n)) out[repo] = n;
+    }
+    if (Object.keys(out).length) return out;
+  }
+
+  // Fallback: heartbeat payloads include per-repo PR arrays.
+  // Count any array-valued fields on `prs` (excluding mergeReady/summary).
+  if (prs && typeof prs === "object") {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(prs)) {
+      if (k === "summary" || k === "mergeReady" || k === "merge_ready") continue;
+      if (Array.isArray(v)) out[k] = v.length;
     }
     if (Object.keys(out).length) return out;
   }
