@@ -29,13 +29,24 @@ export default defineConfig({
         "**/types.ts",
       ],
       thresholds: {
-        // PR 1: Scaffold — no code to cover yet
-        // PR 2: Parsers at 95%+, services at 80%+
-        // PR 3: Routes at 75%+
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        "src/server/parsers/**": {
+          lines: 95,
+          functions: 95,
+          branches: 90,
+          statements: 95,
+        },
+        "src/server/services/**": {
+          lines: 80,
+          functions: 80,
+          branches: 75,
+          statements: 80,
+        },
+        "src/server/routes/**": {
+          lines: 75,
+          functions: 75,
+          branches: 75,
+          statements: 75,
+        },
       },
       clean: true,
       cleanOnRerun: true,

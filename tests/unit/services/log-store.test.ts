@@ -1,28 +1,45 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { queryLogs, insertLogEntry } from "../../../src/server/services/log-store";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  queryLogs,
+  insertLogEntry,
+  batchInsertLogEntries,
+} from "../../../src/server/services/log-store";
 import { initDb, closeDb, runMigrations } from "../../../src/server/db";
 import * as path from "node:path";
 
 describe("log-store", () => {
-  beforeAll(() => {
+  beforeEach(() => {
     const db = initDb(":memory:");
     const migrationsDir = path.resolve(__dirname, "../../../migrations");
     runMigrations(db, migrationsDir);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     closeDb();
   });
 
-  it("returns empty results when no logs exist", () => {
+  // ── queryLogs ─────────────────────────────────────────────────────────
+
+  it("should return empty results when no logs exist", () => {
     const result = queryLogs({});
+
     expect(result.data).toEqual([]);
     expect(result.total).toBe(0);
     expect(result.page).toBe(1);
+    expect(result.limit).toBe(100);
     expect(result.hasMore).toBe(false);
   });
 
-  it("inserts and retrieves a log entry", () => {
+  it("should default page to 1 and limit to 100", () => {
+    const result = queryLogs({});
+
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(100);
+  });
+
+  // ── insertLogEntry ────────────────────────────────────────────────────
+
+  it("should insert and retrieve a log entry", () => {
     insertLogEntry({
       timestamp: "2026-02-12T10:00:00.000Z",
       level: "info",
@@ -40,12 +57,89 @@ describe("log-store", () => {
     expect(result.data[0]!.source).toBe("gateway-log");
   });
 
-  it("filters by level", () => {
+  it("should assign auto-incrementing IDs", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "first",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "second",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({});
+    expect(result.data[0]!.id).toBeGreaterThan(result.data[1]!.id);
+  });
+
+  it("should store and retrieve metadata as JSON", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T12:00:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "With metadata",
+      raw: '{"original": true}',
+      metadata: { tool: "test", duration: 42 },
+    });
+
+    const result = queryLogs({ q: "metadata" });
+    expect(result.total).toBe(1);
+    expect(result.data[0]!.metadata).toEqual({ tool: "test", duration: 42 });
+    expect(result.data[0]!.raw).toBe('{"original": true}');
+  });
+
+  it("should store null metadata and raw correctly", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T12:00:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "No extras",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({});
+    expect(result.data[0]!.metadata).toBeNull();
+    expect(result.data[0]!.raw).toBeNull();
+  });
+
+  it("should have a createdAt timestamp on inserted entries", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T12:00:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "check createdAt",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({});
+    expect(result.data[0]!.createdAt).toBeTruthy();
+  });
+
+  // ── Filtering ─────────────────────────────────────────────────────────
+
+  it("should filter by level", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "info msg",
+      raw: null,
+      metadata: null,
+    });
     insertLogEntry({
       timestamp: "2026-02-12T10:01:00.000Z",
       level: "error",
       source: "gateway-err",
-      message: "Something failed",
+      message: "error msg",
       raw: null,
       metadata: null,
     });
@@ -54,24 +148,104 @@ describe("log-store", () => {
     expect(errors.total).toBe(1);
     expect(errors.data[0]!.level).toBe("error");
 
-    const all = queryLogs({});
-    expect(all.total).toBe(2);
+    const infos = queryLogs({ level: "info" });
+    expect(infos.total).toBe(1);
+    expect(infos.data[0]!.level).toBe("info");
   });
 
-  it("filters by text search", () => {
+  it("should filter by source", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "from gateway",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "from json",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({ source: "json-log" });
+    expect(result.total).toBe(1);
+    expect(result.data[0]!.source).toBe("json-log");
+  });
+
+  it("should filter by full-text search query", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "Server started on port 18789",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "Connection refused",
+      raw: null,
+      metadata: null,
+    });
+
     const result = queryLogs({ q: "started" });
     expect(result.total).toBe(1);
-    expect(result.data[0]!.message).toBe("Server started");
+    expect(result.data[0]!.message).toBe("Server started on port 18789");
   });
 
-  it("paginates results", () => {
-    // Insert more entries
-    for (let i = 0; i < 5; i++) {
+  it("should combine level and search query filters", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "Server started",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "Server crashed",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({ level: "error", q: "Server" });
+    expect(result.total).toBe(1);
+    expect(result.data[0]!.message).toBe("Server crashed");
+  });
+
+  it("should handle FTS special characters in search query gracefully", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "test message",
+      raw: null,
+      metadata: null,
+    });
+
+    // Should not throw even with special chars
+    const result = queryLogs({ q: 'test\'s "quoted" (parens) *star*' });
+    expect(result).toBeDefined();
+  });
+
+  // ── Pagination ────────────────────────────────────────────────────────
+
+  it("should paginate results correctly", () => {
+    for (let i = 0; i < 7; i++) {
       insertLogEntry({
-        timestamp: `2026-02-12T11:0${i}:00.000Z`,
+        timestamp: `2026-02-12T10:0${i}:00.000Z`,
         level: "info",
         source: "json-log",
-        message: `Batch entry ${i}`,
+        message: `Entry ${i}`,
         raw: null,
         metadata: null,
       });
@@ -80,7 +254,8 @@ describe("log-store", () => {
     const page1 = queryLogs({ limit: 3, page: 1 });
     expect(page1.data).toHaveLength(3);
     expect(page1.hasMore).toBe(true);
-    expect(page1.total).toBe(7); // 2 from earlier + 5 new
+    expect(page1.total).toBe(7);
+    expect(page1.page).toBe(1);
 
     const page2 = queryLogs({ limit: 3, page: 2 });
     expect(page2.data).toHaveLength(3);
@@ -91,26 +266,85 @@ describe("log-store", () => {
     expect(page3.hasMore).toBe(false);
   });
 
-  it("stores and retrieves metadata as JSON", () => {
+  it("should return empty data for page beyond total", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "only one",
+      raw: null,
+      metadata: null,
+    });
+
+    const result = queryLogs({ page: 5, limit: 10 });
+    expect(result.data).toHaveLength(0);
+    expect(result.total).toBe(1);
+    expect(result.hasMore).toBe(false);
+  });
+
+  // ── Ordering ──────────────────────────────────────────────────────────
+
+  it("should order results by timestamp descending", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T08:00:00.000Z",
+      level: "info",
+      source: "json-log",
+      message: "earlier",
+      raw: null,
+      metadata: null,
+    });
     insertLogEntry({
       timestamp: "2026-02-12T12:00:00.000Z",
       level: "info",
       source: "json-log",
-      message: "With metadata",
-      raw: '{"original": true}',
-      metadata: { tool: "test", duration: 42 },
+      message: "later",
+      raw: null,
+      metadata: null,
     });
 
-    const result = queryLogs({ q: "With metadata" });
-    expect(result.total).toBe(1);
-    expect(result.data[0]!.metadata).toEqual({ tool: "test", duration: 42 });
-    expect(result.data[0]!.raw).toBe('{"original": true}');
+    const result = queryLogs({});
+    expect(result.data[0]!.message).toBe("later");
+    expect(result.data[1]!.message).toBe("earlier");
   });
 
-  it("orders by timestamp descending", () => {
+  // ── batchInsertLogEntries ─────────────────────────────────────────────
+
+  it("should insert multiple entries in a batch", () => {
+    const entries = [
+      {
+        timestamp: "2026-02-12T10:00:00.000Z",
+        level: "info" as const,
+        source: "json-log" as const,
+        message: "batch 1",
+        raw: null,
+        metadata: null,
+      },
+      {
+        timestamp: "2026-02-12T10:01:00.000Z",
+        level: "warn" as const,
+        source: "gateway-log" as const,
+        message: "batch 2",
+        raw: null,
+        metadata: null,
+      },
+      {
+        timestamp: "2026-02-12T10:02:00.000Z",
+        level: "error" as const,
+        source: "gateway-err" as const,
+        message: "batch 3",
+        raw: null,
+        metadata: null,
+      },
+    ];
+    batchInsertLogEntries(entries);
+
     const result = queryLogs({});
-    const timestamps = result.data.map((e) => e.timestamp);
-    const sorted = [...timestamps].sort((a, b) => b.localeCompare(a));
-    expect(timestamps).toEqual(sorted);
+    expect(result.total).toBe(3);
+  });
+
+  it("should insert empty batch without error", () => {
+    batchInsertLogEntries([]);
+    const result = queryLogs({});
+    expect(result.total).toBe(0);
   });
 });

@@ -25,7 +25,11 @@ sse.get("/events", async (c) => {
       // Cleanup on close
       c.req.raw.signal.addEventListener("abort", () => {
         clearInterval(interval);
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Stream already closed — safe to ignore
+        }
       });
     },
   });
