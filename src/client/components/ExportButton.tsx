@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 interface ExportButtonProps {
-  data: Record<string, unknown>[];
+  data: object[];
   filename?: string;
 }
 

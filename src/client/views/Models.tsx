@@ -1,25 +1,20 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
+import { ExportButton } from "../components/ExportButton";
 
 export function Models() {
-  const [models, setModels] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/models")
-      .then((r) => r.json())
-      .then((data) => {
-        setModels(data);
-        setLoading(false);
-      });
-  }, []);
+  const { data, loading } = useApi<Record<string, unknown>[]>("/api/models");
+  const models = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Available Models</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Available Models</h2>
+        {models.length > 0 && <ExportButton data={models} filename="models" />}
+      </div>
       <DataTable
         columns={[
           { key: "name", header: "Name" },

@@ -1,35 +1,21 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
+import { ExportButton } from "../components/ExportButton";
+import { relativeTime } from "../lib/formatters";
 
 export function Sessions() {
-  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/sessions")
-      .then((r) => r.json())
-      .then((data) => {
-        setSessions(Array.isArray(data) ? data : []);
-        setLoading(false);
-      });
-  }, []);
+  const { data, loading } = useApi<Record<string, unknown>[]>("/api/sessions");
+  const sessions = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
 
-  // Format relative time
-  const formatRelative = (iso: string | null) => {
-    if (!iso) return "—";
-    const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 60000) return "just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return `${Math.floor(diff / 86400000)}d ago`;
-  };
-
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Agent Sessions</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Agent Sessions</h2>
+        {sessions.length > 0 && <ExportButton data={sessions} filename="sessions" />}
+      </div>
       <DataTable
         columns={[
           { key: "agent_id", header: "Agent" },
@@ -43,11 +29,15 @@ export function Sessions() {
             ),
           },
           { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
-          { key: "model", header: "Model", render: (v: string) => (v ? v.split("/").pop() : "—") },
+          {
+            key: "model",
+            header: "Model",
+            render: (v: string) => (v ? v.split("/").pop() : "\u2014"),
+          },
           {
             key: "last_activity",
             header: "Last Activity",
-            render: (v: string) => formatRelative(v),
+            render: (v: string | null) => (v ? relativeTime(new Date(v).getTime()) : "\u2014"),
           },
         ]}
         data={sessions}

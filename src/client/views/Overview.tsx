@@ -1,31 +1,25 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../hooks/useApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { DataTable } from "../components/DataTable";
+import { ExportButton } from "../components/ExportButton";
 
 export function Overview() {
-  const [health, setHealth] = useState<Record<string, unknown> | null>(null);
-  const [sprites, setSprites] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: health, loading: healthLoading } = useApi<Record<string, unknown>>("/api/health");
+  const { data: sprites, loading: spritesLoading } =
+    useApi<Record<string, unknown>[]>("/api/sprites");
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/sprites").then((r) => r.json()),
-    ]).then(([h, s]) => {
-      setHealth(h);
-      setSprites(s);
-      setLoading(false);
-    });
-  }, []);
+  if (healthLoading || spritesLoading) return <div className="p-4">Loading...</div>;
 
-  if (loading) return <div className="p-4">Loading...</div>;
-
-  const runningSprites = sprites.filter((s) => s.status === "running").length;
-  const idleSprites = sprites.filter((s) => s.status === "idle").length;
+  const spriteList = sprites ?? [];
+  const runningSprites = spriteList.filter((s) => s.status === "running").length;
+  const idleSprites = spriteList.filter((s) => s.status === "idle").length;
 
   return (
     <div className="p-4 space-y-6">
-      <h2 className="text-2xl font-bold text-[var(--fg)]">Factory Overview</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-[var(--fg)]">Factory Overview</h2>
+        {spriteList.length > 0 && <ExportButton data={spriteList} filename="sprites" />}
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-[var(--bg2)] p-4 rounded-lg">
@@ -53,7 +47,7 @@ export function Overview() {
             { key: "agent_count", header: "Agents" },
             { key: "last_seen", header: "Last Seen" },
           ]}
-          data={sprites}
+          data={spriteList}
         />
       </div>
     </div>
