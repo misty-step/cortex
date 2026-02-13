@@ -32,12 +32,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Enable corepack (pnpm)
         run: corepack enable
-      - uses: misty-step/cerberus@v1
+      - uses: misty-step/cerberus@v2
         with:
           perspective: ${{ matrix.perspective }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           api-key: ${{ secrets.OPENROUTER_API_KEY }}
-          timeout: '900'
 
   verdict:
     name: "Council Verdict"
@@ -45,6 +44,6 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: misty-step/cerberus/verdict@v1
+      - uses: misty-step/cerberus/verdict@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
