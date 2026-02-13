@@ -4,11 +4,10 @@ import { collectSessions } from "../collectors/sessions.js";
 import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { config } from "../config.js";
-import * as path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createReadStream } from "node:fs";
-import { createInterface } from "node:readline";
+import { queryLogs } from "../services/log-store.js";
+import type { LogLevel } from "../../shared/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -26,77 +25,23 @@ api.get("/sessions", async (c) => {
   return c.json(sessions);
 });
 
-/** Read last N lines from a file using streaming (avoids OOM on large files). */
-async function readTailLines(filePath: string, maxLines: number): Promise<string[]> {
-  const lines: string[] = [];
-  try {
-    const stream = createReadStream(filePath, { encoding: "utf-8" });
-    const rl = createInterface({ input: stream, crlfDelay: Infinity });
-    for await (const line of rl) {
-      if (!line.trim()) continue;
-      lines.push(line);
-      if (lines.length > maxLines * 2) {
-        // Keep a sliding window to avoid unbounded memory
-        lines.splice(0, lines.length - maxLines);
-      }
-    }
-  } catch {
-    // File doesn't exist or is unreadable
-  }
-  return lines.slice(-maxLines);
-}
-
-function clampLimit(raw: string | undefined, fallback: number, max: number): number {
+function clampInt(raw: string | undefined, fallback: number, max: number): number {
   const parsed = parseInt(raw || String(fallback), 10);
   if (Number.isNaN(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
 }
 
-// Logs (streaming tail to avoid OOM on large files)
-api.get("/logs", async (c) => {
-  const limit = clampLimit(c.req.query("limit"), 100, 10_000);
-  const levelFilter = c.req.query("level");
+// Logs (from SQLite)
+api.get("/logs", (c) => {
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const VALID_LEVELS: Set<string> = new Set(["error", "warn", "info", "debug"]);
+  const rawLevel = c.req.query("level");
+  const level = rawLevel && VALID_LEVELS.has(rawLevel) ? (rawLevel as LogLevel) : undefined;
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
 
-  const logDir = path.join(config.openclawHome, "logs");
-  const entries: Array<{ timestamp: string; level: string; source: string; message: string }> = [];
-
-  try {
-    const gwLines = await readTailLines(path.join(logDir, "gateway.log"), limit * 2);
-    const errLines = await readTailLines(path.join(logDir, "gateway.err.log"), limit);
-
-    for (const line of gwLines) {
-      const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*\[([^\]]+)\]\s*(.+)$/,
-      );
-      if (match) {
-        const time = match[1]!;
-        const subsystem = match[2]!;
-        const message = match[3] ?? "";
-        const level = message.toLowerCase().includes("error")
-          ? "error"
-          : message.toLowerCase().includes("warn")
-            ? "warn"
-            : "info";
-        if (!levelFilter || level === levelFilter) {
-          entries.push({ timestamp: time, level, source: subsystem, message });
-        }
-      }
-    }
-
-    for (const line of errLines) {
-      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-      if (match) {
-        const time = match[1]!;
-        const message = match[2]!;
-        entries.push({ timestamp: time, level: "error", source: "gateway", message });
-      }
-    }
-  } catch (err) {
-    console.error("[api/logs] Failed to read log files:", err);
-  }
-
-  entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  return c.json(entries.slice(0, limit));
+  const result = queryLogs({ level, page, limit, q });
+  return c.json(result);
 });
 
 // Crons
@@ -111,24 +56,11 @@ api.get("/models", (c) => {
   return c.json(models);
 });
 
-// Errors (streaming tail)
-api.get("/errors", async (c) => {
-  const limit = clampLimit(c.req.query("limit"), 50, 10_000);
-  const logDir = path.join(config.openclawHome, "logs");
-
-  try {
-    const lines = await readTailLines(path.join(logDir, "gateway.err.log"), limit);
-    const errors = lines.map((line) => {
-      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-      return match
-        ? { timestamp: match[1], level: "error", message: match[2] }
-        : { timestamp: new Date().toISOString(), level: "error", message: line };
-    });
-    return c.json(errors.reverse());
-  } catch (err) {
-    console.error("[api/errors] Failed to read error log:", err);
-    return c.json([]);
-  }
+// Errors (from SQLite, filtered to error level)
+api.get("/errors", (c) => {
+  const limit = clampInt(c.req.query("limit"), 50, 10_000);
+  const result = queryLogs({ level: "error", limit });
+  return c.json(result);
 });
 
 // Sprites (via CLI — uses execFile to prevent shell injection)

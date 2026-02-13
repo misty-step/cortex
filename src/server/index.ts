@@ -8,12 +8,45 @@ import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import * as fs from "node:fs";
 import { api } from "./routes/api.js";
 import { sse } from "./routes/sse.js";
+import { initDb, runMigrations, closeDb } from "./db.js";
+import { startLogTailer, stopLogTailer } from "./services/log-tailer.js";
+import { batchInsertLogEntries } from "./services/log-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.join(__dirname, "../client");
 
+// ─── Database ────────────────────────────────────────────────────────────────
+const dbDir = path.dirname(config.dbPath);
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
+const db = initDb(config.dbPath);
+
+const migrationsDir = path.resolve(__dirname, "../../migrations");
+if (fs.existsSync(migrationsDir)) {
+  runMigrations(db, migrationsDir);
+}
+
+// ─── Log Tailer ──────────────────────────────────────────────────────────────
+const logDir = path.join(config.openclawHome, "logs");
+startLogTailer(logDir, (entries) => {
+  batchInsertLogEntries(
+    entries.map(({ entry, source }) => ({
+      timestamp: entry.time,
+      level: entry.level as "error" | "warn" | "info" | "debug",
+      source,
+      message: entry.message,
+      raw: null,
+      metadata: null,
+    })),
+  );
+}).catch((err) => {
+  console.error("[cortex] Log tailer failed to start:", err);
+});
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 const app = new Hono();
 
 // Middleware
@@ -47,5 +80,16 @@ serve(
     console.log(`Cortex v2 ready at http://localhost:${info.port}`);
   },
 );
+
+// ─── Graceful Shutdown ──────────────────────────────────────────────────────
+function shutdown() {
+  console.log("[cortex] Shutting down...");
+  stopLogTailer();
+  closeDb();
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 export { app };
