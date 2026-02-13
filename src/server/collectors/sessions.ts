@@ -1,15 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-
-export interface SessionInfo {
-  agent_id: string;
-  session_key: string;
-  status: string;
-  start_time: string | null;
-  last_activity: string | null;
-  current_task: string | null;
-  model?: string;
-}
+import type { SessionInfo } from "../../shared/types.js";
 
 export async function collectSessions(openclawHome: string): Promise<SessionInfo[]> {
   const sessions: SessionInfo[] = [];

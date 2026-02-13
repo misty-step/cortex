@@ -1,10 +1,5 @@
 import * as http from "node:http";
-
-export interface HealthStatus {
-  status: "ok" | "degraded" | "error";
-  gateway: "reachable" | "unreachable";
-  timestamp: number;
-}
+import type { HealthStatus } from "../../shared/types.js";
 
 export async function collectHealth(gatewayPort: number = 18789): Promise<HealthStatus> {
   return new Promise((resolve) => {

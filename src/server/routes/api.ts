@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { queryLogs } from "../services/log-store.js";
-import type { LogLevel } from "../../shared/types.js";
+import type { LogLevel, SpriteStatus } from "../../shared/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -74,12 +74,12 @@ api.get("/sprites", async (c) => {
     }).catch(() => ({ stdout: "" }));
     const psLines = psOut.split("\n").filter((l) => l.trim());
 
-    const sprites = lines.map((line) => {
+    const sprites: SpriteStatus[] = lines.map((line) => {
       const name = line.split(/\s+/)[0] || "unknown";
       const agentCount = psLines.filter((p) => p.includes(name)).length;
       return {
         name,
-        status: agentCount > 0 ? "running" : "idle",
+        status: agentCount > 0 ? ("running" as const) : ("idle" as const),
         agent_count: agentCount,
         last_seen: agentCount > 0 ? new Date().toISOString() : null,
       };

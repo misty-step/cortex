@@ -26,82 +26,49 @@ export interface ToolCall {
   createdAt: string;
 }
 
-export interface HealthSnapshot {
-  id: number;
-  timestamp: string;
-  channels: Record<string, unknown>;
-  agents: Record<string, unknown>;
-  sessions: Record<string, unknown>;
-  createdAt: string;
+// ─── Collector / API Response Types ─────────────────────────────────────────
+// These are the shapes returned by collectors and served via API routes.
+// Client views consume these directly.
+
+export interface HealthStatus {
+  status: "ok" | "degraded" | "error";
+  gateway: "reachable" | "unreachable";
+  timestamp: number;
 }
 
-export interface Session {
-  key: string;
-  agentId: string;
-  model: string;
-  totalTokens: number;
-  contextTokens: number;
-  usagePercent: number;
-  updatedAt: number;
-  ageMs: number;
-}
-
-export type AgentSessionStatus = "active" | "idle" | "stale" | "aborted" | "unknown";
-
-// /api/sessions response shape (OpenClaw agent session summary)
-export interface AgentSessionSummary {
+export interface SessionInfo {
   agent_id: string;
   session_key: string;
-  status: AgentSessionStatus;
-  start_time: string | null; // ISO timestamp
-  last_activity: string | null; // ISO timestamp
+  status: string;
+  start_time: string | null;
+  last_activity: string | null;
   current_task: string | null;
+  model?: string;
 }
-
-// /api/sessions returns a plain array.
-export type SessionsResponse = AgentSessionSummary[];
 
 export interface CronJob {
+  id: string;
   name: string;
-  agentId: string;
-  enabled: boolean;
-  schedule: {
-    expr?: string;
-    everyMs?: number;
-  };
-  state: {
-    lastStatus?: string;
-    lastRunAtMs?: number;
-    lastDurationMs?: number;
-    nextRunAtMs?: number;
-    runningAtMs?: number;
-  };
+  agent_id: string;
+  schedule: string;
+  last_run: string | null;
+  next_run: string | null;
+  status: string;
+  last_status: string;
 }
 
-export interface GatewayHealth {
-  ok: boolean;
-  channels: Record<string, unknown>;
-  agents: Array<{
-    agentId: string;
-    name: string;
-    sessions: { count: number; recent: Array<{ updatedAt: number }> };
-    heartbeat: { enabled: boolean };
-  }>;
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
 }
 
-export interface ModelStatus {
-  defaultModel: string;
-  resolvedDefault: string;
-  fallbacks: string[];
-  allowed: string[];
-  auth?: {
-    providers: Array<{
-      provider: string;
-      profiles?: { count: number };
-      env?: { value: unknown };
-      effective?: { kind: string; detail: string };
-    }>;
-  };
+export interface SpriteStatus {
+  name: string;
+  status: "running" | "idle";
+  agent_count: number;
+  last_seen: string | null;
 }
 
 // ─── API Query Types ────────────────────────────────────────────────────────

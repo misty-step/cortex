@@ -1,16 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-
-export interface CronJob {
-  id: string;
-  name: string;
-  agent_id: string;
-  schedule: string;
-  last_run: string | null;
-  next_run: string | null;
-  status: string;
-  last_status: string;
-}
+import type { CronJob } from "../../shared/types.js";
 
 export async function collectCrons(openclawHome: string): Promise<CronJob[]> {
   const crons: CronJob[] = [];
