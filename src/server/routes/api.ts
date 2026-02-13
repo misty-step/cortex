@@ -4,12 +4,12 @@ import { collectSessions } from "../collectors/sessions.js";
 import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { config } from "../config.js";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { queryLogs } from "../services/log-store.js";
+import type { LogLevel } from "../../shared/types.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const api = new Hono();
 
@@ -25,50 +25,21 @@ api.get("/sessions", async (c) => {
   return c.json(sessions);
 });
 
-// Logs (read from files directly)
-api.get("/logs", async (c) => {
-  const limit = parseInt(c.req.query("limit") || "100", 10);
+function clampInt(raw: string | undefined, fallback: number, max: number): number {
+  const parsed = parseInt(raw || String(fallback), 10);
+  if (Number.isNaN(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, max);
+}
 
-  const logDir = path.join(config.openclawHome, "logs");
-  const entries: { timestamp: string; level: string; source: string; message: string }[] = [];
+// Logs (from SQLite)
+api.get("/logs", (c) => {
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const level = c.req.query("level") as LogLevel | undefined;
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
 
-  try {
-    const gwLog = await fs.readFile(path.join(logDir, "gateway.log"), "utf-8").catch(() => "");
-    const gwErr = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8").catch(() => "");
-
-    for (const line of gwLog.split("\n").filter((l) => l.trim())) {
-      const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*\[([^\]]+)\]\s*(.+)$/,
-      );
-      if (match) {
-        const time = match[1] ?? "";
-        const subsystem = match[2] ?? "";
-        const message = match[3] ?? "";
-        const level = message.toLowerCase().includes("error")
-          ? "error"
-          : message.toLowerCase().includes("warn")
-            ? "warn"
-            : "info";
-        if (!c.req.query("level") || level === c.req.query("level")) {
-          entries.push({ timestamp: time, level, source: subsystem, message });
-        }
-      }
-    }
-
-    for (const line of gwErr.split("\n").filter((l) => l.trim())) {
-      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-      if (match) {
-        const time = match[1] ?? "";
-        const message = match[2] ?? "";
-        entries.push({ timestamp: time, level: "error", source: "gateway", message });
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  return c.json(entries.slice(0, limit));
+  const result = queryLogs({ level, page, limit, q });
+  return c.json(result);
 });
 
 // Crons
@@ -83,36 +54,20 @@ api.get("/models", (c) => {
   return c.json(models);
 });
 
-// Errors
-api.get("/errors", async (c) => {
-  const limit = parseInt(c.req.query("limit") || "50", 10);
-  const logDir = path.join(config.openclawHome, "logs");
-
-  try {
-    const content = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8");
-    const errors = content
-      .split("\n")
-      .filter((l) => l.trim())
-      .slice(-limit)
-      .map((line) => {
-        const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-        return match
-          ? { timestamp: match[1], level: "error", message: match[2] }
-          : { timestamp: new Date().toISOString(), level: "error", message: line };
-      });
-    return c.json(errors.reverse());
-  } catch {
-    return c.json([]);
-  }
+// Errors (from SQLite, filtered to error level)
+api.get("/errors", (c) => {
+  const limit = clampInt(c.req.query("limit"), 50, 10_000);
+  const result = queryLogs({ level: "error", limit });
+  return c.json(result);
 });
 
-// Sprites (via CLI)
+// Sprites (via CLI — uses execFile to prevent shell injection)
 api.get("/sprites", async (c) => {
   try {
-    const { stdout } = await execAsync("sprite list", { timeout: 15000 });
+    const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 15000 });
     const lines = stdout.split("\n").filter((l) => l.trim() && !l.startsWith("name"));
 
-    const { stdout: psOut } = await execAsync("ps aux | grep -E 'claude|codex' | grep -v grep", {
+    const { stdout: psOut } = await execFileAsync("pgrep", ["-lf", "claude|codex"], {
       timeout: 5000,
     }).catch(() => ({ stdout: "" }));
     const psLines = psOut.split("\n").filter((l) => l.trim());
@@ -129,7 +84,8 @@ api.get("/sprites", async (c) => {
     });
 
     return c.json(sprites);
-  } catch {
+  } catch (err) {
+    console.error("[api/sprites] Failed to collect sprite status:", err);
     return c.json([]);
   }
 });

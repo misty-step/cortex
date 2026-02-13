@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
+import type { LogEntry } from "../../shared/types";
 
 export function Errors() {
-  const [errors, setErrors] = useState<Record<string, unknown>[]>([]);
+  const [errors, setErrors] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/errors")
       .then((r) => r.json())
       .then((data) => {
-        setErrors(Array.isArray(data) ? data : []);
+        setErrors(Array.isArray(data) ? data : (data?.data ?? []));
         setLoading(false);
       });
   }, []);

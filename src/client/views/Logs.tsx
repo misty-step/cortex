@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
+import type { LogEntry } from "../../shared/types";
 
 export function Logs() {
-  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("");
 
@@ -11,7 +12,7 @@ export function Logs() {
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
-        setLogs(Array.isArray(data) ? data : []);
+        setLogs(Array.isArray(data) ? data : (data?.data ?? []));
         setLoading(false);
       });
   }, [level]);

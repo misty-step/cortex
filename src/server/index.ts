@@ -8,12 +8,43 @@ import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import * as fs from "node:fs";
 import { api } from "./routes/api.js";
 import { sse } from "./routes/sse.js";
+import { initDb, runMigrations } from "./db.js";
+import { startLogTailer } from "./services/log-tailer.js";
+import { insertLogEntry } from "./services/log-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.join(__dirname, "../client");
 
+// ─── Database ────────────────────────────────────────────────────────────────
+const dbDir = path.dirname(config.dbPath);
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
+const db = initDb(config.dbPath);
+
+const migrationsDir = path.resolve(__dirname, "../../migrations");
+if (fs.existsSync(migrationsDir)) {
+  runMigrations(db, migrationsDir);
+}
+
+// ─── Log Tailer ──────────────────────────────────────────────────────────────
+const logDir = path.join(config.openclawHome, "logs");
+startLogTailer(logDir, (entry, source) => {
+  insertLogEntry({
+    timestamp: entry.time,
+    level: entry.level as "error" | "warn" | "info" | "debug",
+    source,
+    message: entry.message,
+    raw: null,
+    metadata: null,
+  });
+}).catch((err) => {
+  console.error("[cortex] Log tailer failed to start:", err);
+});
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 const app = new Hono();
 
 // Middleware
