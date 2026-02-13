@@ -65,6 +65,18 @@ func main() {
 		}
 	}
 
+	// Validate flags
+	switch period {
+	case "today", "yesterday", "week", "month", "all":
+	default:
+		fmt.Fprintf(os.Stderr, "Error: invalid --period %q (expected today|yesterday|week|month|all)\n", period)
+		os.Exit(1)
+	}
+	if format != "text" && format != "json" {
+		fmt.Fprintf(os.Stderr, "Error: invalid --format %q (expected text|json)\n", format)
+		os.Exit(1)
+	}
+
 	// Reject mutually exclusive flags
 	if crons && models {
 		fmt.Fprintln(os.Stderr, "Error: --crons and --models are mutually exclusive")

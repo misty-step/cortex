@@ -1,9 +1,9 @@
 package parser
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,8 +110,11 @@ func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session,
 		}
 
 		// Pre-filter: skip files older than the requested period
+		var fi fs.FileInfo
 		if !after.IsZero() {
-			if fi, err := entry.Info(); err == nil && fi.ModTime().Before(after) {
+			var infoErr error
+			fi, infoErr = entry.Info()
+			if infoErr == nil && fi.ModTime().Before(after) {
 				continue
 			}
 		}
@@ -119,7 +122,8 @@ func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session,
 		sessionID := strings.TrimSuffix(name, ".jsonl")
 		sessionPath := filepath.Join(sessionsDir, name)
 
-		session, err := parseSessionFile(sessionPath, agentName, sessionID, sessionIndex[sessionID])
+		// Pass file info to avoid redundant os.Stat inside parseSessionFile
+		session, err := parseSessionFile(sessionPath, agentName, sessionID, sessionIndex[sessionID], fi)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: parsing session %s: %v\n", sessionID, err)
 			continue
@@ -131,7 +135,7 @@ func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session,
 	return sessions, nil
 }
 
-func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Session, error) {
+func parseSessionFile(path, agentName, sessionID string, info SessionInfo, cachedInfo fs.FileInfo) (Session, error) {
 	session := Session{
 		ID:          sessionID,
 		Agent:       agentName,
@@ -169,7 +173,9 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 
 	// Fallback: use file modification time when no timestamp from index
 	if session.Timestamp.IsZero() {
-		if fi, err := os.Stat(path); err == nil {
+		if cachedInfo != nil {
+			session.Timestamp = cachedInfo.ModTime()
+		} else if fi, err := os.Stat(path); err == nil {
 			session.Timestamp = fi.ModTime()
 		}
 	}
@@ -180,23 +186,15 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	// Increase buffer size to handle large JSON lines (64KB)
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-
+	dec := json.NewDecoder(file)
+	for dec.More() {
 		var entry struct {
 			Type      string          `json:"type"`
 			Timestamp json.RawMessage `json:"timestamp"` // Can be string or number
 			Message   json.RawMessage `json:"message"`
 		}
 
-		if err := json.Unmarshal(line, &entry); err != nil {
+		if err := dec.Decode(&entry); err != nil {
 			continue // Skip malformed lines
 		}
 
@@ -239,10 +237,6 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 				session.MessageCount++
 			}
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return session, fmt.Errorf("scanning file: %w", err)
 	}
 
 	return session, nil
