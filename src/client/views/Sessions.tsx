@@ -3,13 +3,13 @@ import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 
 export function Sessions() {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/sessions")
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         setSessions(Array.isArray(data) ? data : []);
         setLoading(false);
       });
@@ -33,12 +33,22 @@ export function Sessions() {
       <DataTable
         columns={[
           { key: "agent_id", header: "Agent" },
-          { key: "session_key", header: "Session", render: (v: string) => (
-            <span className="font-mono text-xs" title={v}>{v.split(":").slice(-2).join(":")}</span>
-          )},
+          {
+            key: "session_key",
+            header: "Session",
+            render: (v: string) => (
+              <span className="font-mono text-xs" title={v}>
+                {v.split(":").slice(-2).join(":")}
+              </span>
+            ),
+          },
           { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
-          { key: "model", header: "Model", render: (v: string) => v ? v.split("/").pop() : "—" },
-          { key: "last_activity", header: "Last Activity", render: (v: string) => formatRelative(v) },
+          { key: "model", header: "Model", render: (v: string) => (v ? v.split("/").pop() : "—") },
+          {
+            key: "last_activity",
+            header: "Last Activity",
+            render: (v: string) => formatRelative(v),
+          },
         ]}
         data={sessions}
       />

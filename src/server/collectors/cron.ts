@@ -12,12 +12,6 @@ export interface CronJob {
   last_status: string;
 }
 
-// Parse cron expression to get next run time (simplified)
-function getNextRun(expr: string, tz?: string): string | null {
-  // For now, return placeholder - in production would use cron-parser
-  return null;
-}
-
 export async function collectCrons(openclawHome: string): Promise<CronJob[]> {
   const crons: CronJob[] = [];
   const jobsFile = path.join(openclawHome, "cron", "jobs.json");
@@ -25,12 +19,12 @@ export async function collectCrons(openclawHome: string): Promise<CronJob[]> {
   try {
     const content = await fs.readFile(jobsFile, "utf-8");
     const data = JSON.parse(content);
-    
+
     if (data.jobs && Array.isArray(data.jobs)) {
       for (const job of data.jobs) {
         const schedule = job.schedule;
         let scheduleStr = "unknown";
-        
+
         if (schedule.kind === "cron" && schedule.expr) {
           scheduleStr = schedule.expr;
           if (schedule.tz) scheduleStr += ` (${schedule.tz})`;
@@ -38,7 +32,7 @@ export async function collectCrons(openclawHome: string): Promise<CronJob[]> {
           const mins = Math.floor(schedule.everyMs / 60000);
           scheduleStr = `every ${mins}m`;
         }
-        
+
         crons.push({
           id: job.id,
           name: job.name,

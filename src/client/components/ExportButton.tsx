@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 interface ExportButtonProps {
-  data: any[];
+  data: Record<string, unknown>[];
   filename?: string;
 }
 
@@ -20,11 +20,16 @@ export function ExportButton({ data, filename = "export" }: ExportButtonProps) {
   };
 
   const exportCSV = () => {
-    if (!data.length) return;
-    const headers = Object.keys(data[0]).join(",");
-    const rows = data.map(row => 
-      Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
-    ).join("\n");
+    const first = data[0];
+    if (!first) return;
+    const headers = Object.keys(first).join(",");
+    const rows = data
+      .map((row) =>
+        Object.values(row)
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      )
+      .join("\n");
     const csv = `${headers}\n${rows}`;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

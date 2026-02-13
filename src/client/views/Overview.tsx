@@ -3,14 +3,14 @@ import { StatusBadge } from "../components/StatusBadge";
 import { DataTable } from "../components/DataTable";
 
 export function Overview() {
-  const [health, setHealth] = useState<any>(null);
-  const [sprites, setSprites] = useState<any[]>([]);
+  const [health, setHealth] = useState<Record<string, unknown> | null>(null);
+  const [sprites, setSprites] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/health").then(r => r.json()),
-      fetch("/api/sprites").then(r => r.json()),
+      fetch("/api/health").then((r) => r.json()),
+      fetch("/api/sprites").then((r) => r.json()),
     ]).then(([h, s]) => {
       setHealth(h);
       setSprites(s);
@@ -20,18 +20,18 @@ export function Overview() {
 
   if (loading) return <div className="p-4">Loading...</div>;
 
-  const runningSprites = sprites.filter(s => s.status === "running").length;
-  const idleSprites = sprites.filter(s => s.status === "idle").length;
+  const runningSprites = sprites.filter((s) => s.status === "running").length;
+  const idleSprites = sprites.filter((s) => s.status === "idle").length;
 
   return (
     <div className="p-4 space-y-6">
       <h2 className="text-2xl font-bold text-[var(--fg)]">Factory Overview</h2>
-      
+
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-[var(--bg2)] p-4 rounded-lg">
           <div className="text-sm text-[var(--fg3)]">Gateway</div>
           <div className="text-2xl font-semibold">
-            <StatusBadge status={health?.status || "unknown"} />
+            <StatusBadge status={String(health?.status ?? "unknown")} />
           </div>
         </div>
         <div className="bg-[var(--bg2)] p-4 rounded-lg">

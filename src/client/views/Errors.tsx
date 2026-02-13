@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { DataTable } from "../components/DataTable";
 
 export function Errors() {
-  const [errors, setErrors] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/errors")
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         setErrors(Array.isArray(data) ? data : []);
         setLoading(false);
       });

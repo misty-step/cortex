@@ -28,39 +28,45 @@ api.get("/sessions", async (c) => {
 // Logs (read from files directly)
 api.get("/logs", async (c) => {
   const limit = parseInt(c.req.query("limit") || "100", 10);
-  const level = c.req.query("level");
-  
+
   const logDir = path.join(config.openclawHome, "logs");
-  const entries: any[] = [];
-  
+  const entries: { timestamp: string; level: string; source: string; message: string }[] = [];
+
   try {
     const gwLog = await fs.readFile(path.join(logDir, "gateway.log"), "utf-8").catch(() => "");
     const gwErr = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8").catch(() => "");
-    
-    for (const line of gwLog.split("\n").filter(l => l.trim())) {
-      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*\[([^\]]+)\]\s*(.+)$/);
+
+    for (const line of gwLog.split("\n").filter((l) => l.trim())) {
+      const match = line.match(
+        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*\[([^\]]+)\]\s*(.+)$/,
+      );
       if (match) {
-        const [, time, subsystem, msg] = match;
-        const message = msg || "";
-        const level = message.toLowerCase().includes("error") ? "error" : 
-                     message.toLowerCase().includes("warn") ? "warn" : "info";
+        const time = match[1] ?? "";
+        const subsystem = match[2] ?? "";
+        const message = match[3] ?? "";
+        const level = message.toLowerCase().includes("error")
+          ? "error"
+          : message.toLowerCase().includes("warn")
+            ? "warn"
+            : "info";
         if (!c.req.query("level") || level === c.req.query("level")) {
           entries.push({ timestamp: time, level, source: subsystem, message });
         }
       }
     }
-    
-    for (const line of gwErr.split("\n").filter(l => l.trim())) {
+
+    for (const line of gwErr.split("\n").filter((l) => l.trim())) {
       const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
       if (match) {
-        const [, time, message] = match;
+        const time = match[1] ?? "";
+        const message = match[2] ?? "";
         entries.push({ timestamp: time, level: "error", source: "gateway", message });
       }
     }
   } catch {
     // Ignore errors
   }
-  
+
   entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   return c.json(entries.slice(0, limit));
 });
@@ -81,16 +87,16 @@ api.get("/models", (c) => {
 api.get("/errors", async (c) => {
   const limit = parseInt(c.req.query("limit") || "50", 10);
   const logDir = path.join(config.openclawHome, "logs");
-  
+
   try {
     const content = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8");
     const errors = content
       .split("\n")
-      .filter(l => l.trim())
+      .filter((l) => l.trim())
       .slice(-limit)
-      .map(line => {
+      .map((line) => {
         const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-        return match 
+        return match
           ? { timestamp: match[1], level: "error", message: match[2] }
           : { timestamp: new Date().toISOString(), level: "error", message: line };
       });
@@ -104,14 +110,16 @@ api.get("/errors", async (c) => {
 api.get("/sprites", async (c) => {
   try {
     const { stdout } = await execAsync("sprite list", { timeout: 15000 });
-    const lines = stdout.split("\n").filter(l => l.trim() && !l.startsWith("name"));
-    
-    const { stdout: psOut } = await execAsync("ps aux | grep -E 'claude|codex' | grep -v grep", { timeout: 5000 }).catch(() => ({ stdout: "" }));
-    const psLines = psOut.split("\n").filter(l => l.trim());
-    
-    const sprites = lines.map(line => {
+    const lines = stdout.split("\n").filter((l) => l.trim() && !l.startsWith("name"));
+
+    const { stdout: psOut } = await execAsync("ps aux | grep -E 'claude|codex' | grep -v grep", {
+      timeout: 5000,
+    }).catch(() => ({ stdout: "" }));
+    const psLines = psOut.split("\n").filter((l) => l.trim());
+
+    const sprites = lines.map((line) => {
       const name = line.split(/\s+/)[0] || "unknown";
-      const agentCount = psLines.filter(p => p.includes(name)).length;
+      const agentCount = psLines.filter((p) => p.includes(name)).length;
       return {
         name,
         status: agentCount > 0 ? "running" : "idle",
@@ -119,7 +127,7 @@ api.get("/sprites", async (c) => {
         last_seen: agentCount > 0 ? new Date().toISOString() : null,
       };
     });
-    
+
     return c.json(sprites);
   } catch {
     return c.json([]);

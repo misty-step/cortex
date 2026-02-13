@@ -3,13 +3,13 @@ import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 
 export function Models() {
-  const [models, setModels] = useState<any[]>([]);
+  const [models, setModels] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/models")
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         setModels(data);
         setLoading(false);
       });

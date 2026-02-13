@@ -24,18 +24,18 @@ export async function collectSessions(openclawHome: string): Promise<SessionInfo
       try {
         const content = await fs.readFile(sessionsFile, "utf-8");
         const sessionsData = JSON.parse(content);
-        
+
         // sessions.json contains multiple sessions keyed by session identifier
         for (const [sessionKey, session] of Object.entries(sessionsData)) {
-          const s = session as any;
+          const s = session as Record<string, unknown>;
           sessions.push({
             agent_id: agentId,
             session_key: sessionKey,
             status: s.systemSent ? "active" : "idle",
-            start_time: s.createdAt ? new Date(s.createdAt).toISOString() : null,
-            last_activity: s.updatedAt ? new Date(s.updatedAt).toISOString() : null,
-            current_task: s.task || "—",
-            model: s.model,
+            start_time: s.createdAt ? new Date(s.createdAt as number).toISOString() : null,
+            last_activity: s.updatedAt ? new Date(s.updatedAt as number).toISOString() : null,
+            current_task: (s.task as string) || "—",
+            model: s.model as string | undefined,
           });
         }
       } catch {

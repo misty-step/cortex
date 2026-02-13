@@ -3,11 +3,13 @@ import { useState } from "react";
 interface Column {
   key: string;
   header: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   render?: (value: any, row: any) => React.ReactNode;
 }
 
 interface DataTableProps {
   columns: Column[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any[];
 }
 
@@ -49,24 +51,17 @@ export function DataTable({ columns, data }: DataTableProps) {
                 className="p-3 font-semibold text-[var(--fg2)] cursor-pointer hover:text-[var(--fg)] select-none"
               >
                 {col.header}
-                {sortKey === col.key && (
-                  <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>
-                )}
+                {sortKey === col.key && <span className="ml-1">{sortDesc ? "↓" : "↑"}</span>}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {sortedData.map((row, idx) => (
-            <tr
-              key={idx}
-              className="border-b border-[var(--bg2)] hover:bg-[var(--bg2)]"
-            >
+            <tr key={idx} className="border-b border-[var(--bg2)] hover:bg-[var(--bg2)]">
               {columns.map((col) => (
                 <td key={col.key} className="p-3 text-[var(--fg)]">
-                  {col.render
-                    ? col.render(row[col.key], row)
-                    : row[col.key] ?? "—"}
+                  {col.render ? col.render(row[col.key], row) : (row[col.key] ?? "—")}
                 </td>
               ))}
             </tr>
