@@ -1,5 +1,6 @@
 import type { LogEntry, LogQuery, PaginatedResponse } from "../../shared/types.js";
 import { getDb } from "../db.js";
+import { config } from "../config.js";
 
 interface LogRow {
   id: number;
@@ -69,6 +70,19 @@ export function batchInsertLogEntries(entries: Omit<LogEntry, "id" | "createdAt"
     }
   });
   runBatch();
+  pruneOldEntries();
+}
+
+/** Delete oldest entries beyond config.maxLogEntries */
+function pruneOldEntries(): void {
+  const db = getDb();
+  db.prepare(
+    `
+    DELETE FROM log_entries WHERE id NOT IN (
+      SELECT id FROM log_entries ORDER BY id DESC LIMIT ?
+    )
+  `,
+  ).run(config.maxLogEntries);
 }
 
 export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {

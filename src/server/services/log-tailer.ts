@@ -50,12 +50,8 @@ function tailFile(
   let reading = false;
 
   try {
-    statSync(filePath);
-    reading = true;
-    readFrom(filePath, 0, parser, source, onBatch, (newOffset) => {
-      offset = newOffset;
-      reading = false;
-    });
+    // Start tailing from current end of file — skip historical data
+    offset = statSync(filePath).size;
   } catch {
     // File doesn't exist yet — watchFile will pick it up when created
   }
@@ -70,7 +66,7 @@ function tailFile(
 
     if (curr.size > offset) {
       reading = true;
-      readFrom(filePath, offset, parser, source, onBatch, (newOffset) => {
+      readFrom(filePath, offset, curr.size, parser, source, onBatch, (newOffset) => {
         offset = newOffset;
         reading = false;
       });
@@ -85,19 +81,12 @@ function tailFile(
 function readFrom(
   filePath: string,
   startOffset: number,
+  endOffset: number,
   parser: (line: string) => ParsedLogEntry | null,
   source: LogSource,
   onBatch: LogBatchHandler,
   onDone: (newOffset: number) => void,
 ): void {
-  // Capture target offset before reading to avoid race with concurrent writes
-  let endOffset = startOffset;
-  try {
-    endOffset = statSync(filePath).size;
-  } catch {
-    // Fall through with startOffset
-  }
-
   const stream = createReadStream(filePath, {
     encoding: "utf-8",
     start: startOffset,
