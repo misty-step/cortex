@@ -8,16 +8,17 @@ import { parseJsonLogLine } from "../parsers/json-log.js";
 import type { ParsedLogEntry } from "../types.js";
 import type { LogSource } from "../../shared/types.js";
 
-type LogHandler = (entry: ParsedLogEntry, source: LogSource) => void;
+export type LogBatch = { entry: ParsedLogEntry; source: LogSource }[];
+type LogBatchHandler = (entries: LogBatch) => void;
 
 const watchers = new Map<string, { close: () => void }>();
 
-export async function startLogTailer(logDir: string, onEntry: LogHandler): Promise<void> {
+export async function startLogTailer(logDir: string, onBatch: LogBatchHandler): Promise<void> {
   const gwLogPath = path.join(logDir, "gateway.log");
-  tailFile(gwLogPath, parseGatewayLogLine, "gateway-log", onEntry);
+  tailFile(gwLogPath, parseGatewayLogLine, "gateway-log", onBatch);
 
   const gwErrPath = path.join(logDir, "gateway.err.log");
-  tailFile(gwErrPath, parseGatewayErrLine, "gateway-err", onEntry);
+  tailFile(gwErrPath, parseGatewayErrLine, "gateway-err", onBatch);
 
   const jsonLogDir = "/tmp/openclaw";
   try {
@@ -25,7 +26,7 @@ export async function startLogTailer(logDir: string, onEntry: LogHandler): Promi
     const today = new Date().toISOString().slice(0, 10);
     const todayLog = files.find((f) => f.includes(today) && f.endsWith(".log"));
     if (todayLog) {
-      tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onEntry);
+      tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onBatch);
     }
   } catch {
     // Directory doesn't exist yet
@@ -43,19 +44,18 @@ function tailFile(
   filePath: string,
   parser: (line: string) => ParsedLogEntry | null,
   source: LogSource,
-  onEntry: LogHandler,
+  onBatch: LogBatchHandler,
 ): void {
   let offset = 0;
   let reading = false;
 
   try {
-    const stat = statSync(filePath);
+    statSync(filePath);
     reading = true;
-    readFrom(filePath, 0, parser, source, onEntry, (newOffset) => {
+    readFrom(filePath, 0, parser, source, onBatch, (newOffset) => {
       offset = newOffset;
       reading = false;
     });
-    offset = stat.size;
   } catch {
     // File doesn't exist yet — watchFile will pick it up when created
   }
@@ -70,7 +70,7 @@ function tailFile(
 
     if (curr.size > offset) {
       reading = true;
-      readFrom(filePath, offset, parser, source, onEntry, (newOffset) => {
+      readFrom(filePath, offset, parser, source, onBatch, (newOffset) => {
         offset = newOffset;
         reading = false;
       });
@@ -87,16 +87,25 @@ function readFrom(
   startOffset: number,
   parser: (line: string) => ParsedLogEntry | null,
   source: LogSource,
-  onEntry: LogHandler,
+  onBatch: LogBatchHandler,
   onDone: (newOffset: number) => void,
 ): void {
+  // Capture target offset before reading to avoid race with concurrent writes
+  let endOffset = startOffset;
+  try {
+    endOffset = statSync(filePath).size;
+  } catch {
+    // Fall through with startOffset
+  }
+
   const stream = createReadStream(filePath, {
     encoding: "utf-8",
     start: startOffset,
+    end: endOffset > startOffset ? endOffset - 1 : undefined,
   });
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
-  const batch: { entry: ParsedLogEntry; source: LogSource }[] = [];
+  const batch: LogBatch = [];
 
   rl.on("line", (line) => {
     const entry = parser(line);
@@ -104,20 +113,14 @@ function readFrom(
   });
 
   rl.on("close", () => {
-    // Flush batch at once — lets caller wrap in a transaction
-    for (const item of batch) {
-      onEntry(item.entry, item.source);
-    }
-    // Use actual file size instead of manual byte counting
-    try {
-      onDone(statSync(filePath).size);
-    } catch {
-      onDone(startOffset);
-    }
+    if (batch.length > 0) onBatch(batch);
+    onDone(endOffset);
     stream.destroy();
   });
 
   stream.on("error", () => {
+    // Reset so future polls can retry
+    onDone(startOffset);
     stream.destroy();
   });
 }

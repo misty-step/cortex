@@ -88,9 +88,12 @@ export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {
     params.push(source);
   }
   if (q) {
-    // Use FTS5 for full-text search with prefix matching
-    conditions.push("id IN (SELECT rowid FROM log_entries_fts WHERE log_entries_fts MATCH ?)");
-    params.push(q + "*");
+    // Use FTS5 for full-text search — escape special chars and add prefix matching
+    const sanitized = q.replace(/['"()*:^~]/g, " ").trim();
+    if (sanitized) {
+      conditions.push("id IN (SELECT rowid FROM log_entries_fts WHERE log_entries_fts MATCH ?)");
+      params.push(`"${sanitized}"*`);
+    }
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";

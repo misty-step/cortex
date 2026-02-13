@@ -13,7 +13,7 @@ import { api } from "./routes/api.js";
 import { sse } from "./routes/sse.js";
 import { initDb, runMigrations, closeDb } from "./db.js";
 import { startLogTailer, stopLogTailer } from "./services/log-tailer.js";
-import { insertLogEntry } from "./services/log-store.js";
+import { batchInsertLogEntries } from "./services/log-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.join(__dirname, "../client");
@@ -31,15 +31,17 @@ if (fs.existsSync(migrationsDir)) {
 
 // ─── Log Tailer ──────────────────────────────────────────────────────────────
 const logDir = path.join(config.openclawHome, "logs");
-startLogTailer(logDir, (entry, source) => {
-  insertLogEntry({
-    timestamp: entry.time,
-    level: entry.level as "error" | "warn" | "info" | "debug",
-    source,
-    message: entry.message,
-    raw: null,
-    metadata: null,
-  });
+startLogTailer(logDir, (entries) => {
+  batchInsertLogEntries(
+    entries.map(({ entry, source }) => ({
+      timestamp: entry.time,
+      level: entry.level as "error" | "warn" | "info" | "debug",
+      source,
+      message: entry.message,
+      raw: null,
+      metadata: null,
+    })),
+  );
 }).catch((err) => {
   console.error("[cortex] Log tailer failed to start:", err);
 });
