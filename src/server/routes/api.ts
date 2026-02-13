@@ -137,7 +137,7 @@ api.get("/sprites", async (c) => {
     const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 15000 });
     const lines = stdout.split("\n").filter((l) => l.trim() && !l.startsWith("name"));
 
-    const { stdout: psOut } = await execFileAsync("pgrep", ["-lf", "claude|codex"], {
+    const { stdout: psOut } = await execFileAsync("pgrep", ["-af", "claude|codex"], {
       timeout: 5000,
     }).catch(() => ({ stdout: "" }));
     const psLines = psOut.split("\n").filter((l) => l.trim());
