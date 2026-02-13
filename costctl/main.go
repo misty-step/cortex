@@ -65,6 +65,12 @@ func main() {
 		}
 	}
 
+	// Reject mutually exclusive flags
+	if crons && models {
+		fmt.Fprintln(os.Stderr, "Error: --crons and --models are mutually exclusive")
+		os.Exit(1)
+	}
+
 	// If no specific report type, default to full
 	if !crons && !models && agent == "" {
 		full = true
@@ -125,6 +131,8 @@ Examples:
 func filterByPeriod(sessions []parser.Session, period string) []parser.Session {
 	now := time.Now()
 	var startTime time.Time
+	var endTime time.Time
+	hasEnd := false
 
 	switch period {
 	case "today":
@@ -132,6 +140,8 @@ func filterByPeriod(sessions []parser.Session, period string) []parser.Session {
 	case "yesterday":
 		yesterday := now.AddDate(0, 0, -1)
 		startTime = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+		endTime = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		hasEnd = true
 	case "week":
 		startTime = now.AddDate(0, 0, -7)
 	case "month":
@@ -142,7 +152,7 @@ func filterByPeriod(sessions []parser.Session, period string) []parser.Session {
 
 	var filtered []parser.Session
 	for _, s := range sessions {
-		if s.Timestamp.After(startTime) {
+		if s.Timestamp.After(startTime) && (!hasEnd || s.Timestamp.Before(endTime)) {
 			filtered = append(filtered, s)
 		}
 	}

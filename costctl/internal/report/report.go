@@ -161,8 +161,6 @@ func buildFullReport(sessions []parser.Session) FullReport {
 		Sessions:   make([]SessionSummary, 0, len(sessions)),
 	}
 
-	modelSeen := make(map[string]bool)
-
 	for _, s := range sessions {
 		r.TotalCost += s.Cost
 		r.TotalSessions++
@@ -171,14 +169,17 @@ func buildFullReport(sessions []parser.Session) FullReport {
 		r.ByAgent[s.Agent] += s.Cost
 		r.ByType[s.Type] += s.Cost
 
-		if s.Type == "cron" && s.CronID != "" {
-			r.ByCron[s.CronID] += s.Cost
+		if s.Type == "cron" {
+			cronID := s.CronID
+			if cronID == "" {
+				cronID = "(unnamed)"
+			}
+			r.ByCron[cronID] += s.Cost
 		}
 
 		for _, m := range s.Messages {
 			if m.Model != "" {
 				r.ByModel[m.Model] += m.Cost
-				modelSeen[m.Model] = true
 			}
 		}
 
@@ -208,7 +209,7 @@ func formatFullReportText(r FullReport) string {
 	// By Agent
 	b.WriteString("━╦━ By Agent ═╦━\n")
 	for _, item := range sortedMap(r.ByAgent) {
-		pct := (item.value / r.TotalCost) * 100
+		pct := safePct(item.value, r.TotalCost)
 		b.WriteString(fmt.Sprintf("  %-15s $%8.4f (%5.1f%%)\n", item.key, item.value, pct))
 	}
 	b.WriteString("\n")
@@ -216,7 +217,7 @@ func formatFullReportText(r FullReport) string {
 	// By Type
 	b.WriteString("━╦━ By Session Type ═╦━\n")
 	for _, item := range sortedMap(r.ByType) {
-		pct := (item.value / r.TotalCost) * 100
+		pct := safePct(item.value, r.TotalCost)
 		b.WriteString(fmt.Sprintf("  %-15s $%8.4f (%5.1f%%)\n", item.key, item.value, pct))
 	}
 	b.WriteString("\n")
@@ -224,7 +225,7 @@ func formatFullReportText(r FullReport) string {
 	// By Model
 	b.WriteString("━╦━ By Model ═╦━\n")
 	for _, item := range sortedMap(r.ByModel) {
-		pct := (item.value / r.TotalCost) * 100
+		pct := safePct(item.value, r.TotalCost)
 		b.WriteString(fmt.Sprintf("  %-40s $%8.4f (%5.1f%%)\n", truncate(item.key, 40), item.value, pct))
 	}
 
@@ -249,6 +250,13 @@ func sortedMap(m map[string]float64) []struct {
 		return items[i].value > items[j].value
 	})
 	return items
+}
+
+func safePct(value, total float64) float64 {
+	if total == 0 {
+		return 0
+	}
+	return (value / total) * 100
 }
 
 func truncate(s string, max int) string {

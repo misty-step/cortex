@@ -216,6 +216,11 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 					Role:  msgContent.Role,
 					Model: msgContent.Model,
 					Cost:  msgContent.Usage.Cost.Total,
+					Tokens: TokenCount{
+						Input:  msgContent.Usage.Input,
+						Output: msgContent.Usage.Output,
+						Total:  msgContent.Usage.TotalTokens,
+					},
 				}
 				session.Messages = append(session.Messages, msg)
 
