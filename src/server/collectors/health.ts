@@ -1,19 +1,19 @@
 import * as http from "node:http";
 import type { HealthStatus } from "../../shared/types.js";
+import { config } from "../config.js";
 
-export async function collectHealth(gatewayPort: number = 18789): Promise<HealthStatus> {
+function healthResult(reachable: boolean): HealthStatus {
+  return {
+    status: reachable ? "ok" : "degraded",
+    gateway: reachable ? "reachable" : "unreachable",
+    timestamp: Date.now(),
+  };
+}
+
+export async function collectHealth(
+  gatewayPort: number = config.gatewayPort,
+): Promise<HealthStatus> {
   return new Promise((resolve) => {
-    let settled = false;
-    const done = (reachable: boolean) => {
-      if (settled) return;
-      settled = true;
-      resolve({
-        status: reachable ? "ok" : "degraded",
-        gateway: reachable ? "reachable" : "unreachable",
-        timestamp: Date.now(),
-      });
-    };
-
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 1000);
 
@@ -28,13 +28,18 @@ export async function collectHealth(gatewayPort: number = 18789): Promise<Health
       (res) => {
         clearTimeout(timer);
         res.resume();
-        done(res.statusCode === 200);
+        res.on("error", () => {
+          resolve(healthResult(false));
+        });
+        res.on("end", () => {
+          resolve(healthResult(res.statusCode === 200));
+        });
       },
     );
 
     req.on("error", () => {
       clearTimeout(timer);
-      done(false);
+      resolve(healthResult(false));
     });
 
     req.end();
