@@ -376,6 +376,47 @@ describe("API routes", () => {
     expect(body.data).toHaveLength(2);
   });
 
+  it("should filter errors by source", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "error",
+      source: "json-log",
+      message: "agent error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=gateway-err");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
+  it("should ignore invalid source values on /errors", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=invalid-source");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    // Invalid source should be ignored, returning all errors
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
   // ── GET /sprites ──────────────────────────────────────────────────────
 
   it("should return sprites with running status when processes found", async () => {
