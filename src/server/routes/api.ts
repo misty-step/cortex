@@ -85,10 +85,10 @@ api.get("/crons", async (c) => {
   if (q) {
     const searchTerm = q.toLowerCase();
     filteredCrons = allCrons.filter(
-      (c) =>
-        c.name.toLowerCase().includes(searchTerm) ||
-        c.agent_id.toLowerCase().includes(searchTerm) ||
-        c.schedule.toLowerCase().includes(searchTerm),
+      (cron) =>
+        cron.name.toLowerCase().includes(searchTerm) ||
+        cron.agent_id.toLowerCase().includes(searchTerm) ||
+        cron.schedule.toLowerCase().includes(searchTerm),
     );
   }
 

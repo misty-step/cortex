@@ -373,7 +373,7 @@ describe("API routes", () => {
     const res = await api.request("/errors?limit=2&page=2");
     const body = (await res.json()) as { data: unknown[]; page: number };
     expect(body.page).toBe(2);
-    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data).toHaveLength(2);
   });
 
   // ── GET /sprites ──────────────────────────────────────────────────────
