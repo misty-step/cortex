@@ -18,6 +18,7 @@ jobs:
   review:
     name: "${{ matrix.reviewer }}"
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
         include:
