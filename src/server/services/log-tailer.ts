@@ -29,7 +29,9 @@ export async function startLogTailer(logDir: string, onBatch: LogBatchHandler): 
       tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onBatch);
     }
   } catch (err) {
-    console.error("[log-tailer] Failed to read JSON log directory:", err);
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("[log-tailer] Failed to read JSON log directory:", err);
+    }
   }
 }
 
@@ -53,7 +55,9 @@ function tailFile(
     // Start tailing from current end of file — skip historical data
     offset = statSync(filePath).size;
   } catch (err) {
-    console.error(`[log-tailer] Failed to stat ${filePath}, starting from offset 0:`, err);
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error(`[log-tailer] Failed to stat ${filePath}, starting from offset 0:`, err);
+    }
   }
 
   watchFile(filePath, { interval: 2000 }, (curr, _prev) => {

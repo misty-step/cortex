@@ -39,7 +39,9 @@ export async function collectSessions(openclawHome: string): Promise<SessionInfo
           });
         }
       } catch (err) {
-        console.error(`[collector/sessions] Failed to read sessions for agent ${agentId}:`, err);
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.error(`[collector/sessions] Failed to read sessions for agent ${agentId}:`, err);
+        }
       }
     }
   } catch (err) {
