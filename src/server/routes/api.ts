@@ -21,8 +21,36 @@ api.get("/health", async (c) => {
 
 // Sessions
 api.get("/sessions", async (c) => {
-  const sessions = await collectSessions(config.openclawHome);
-  return c.json(sessions);
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
+  const allSessions = await collectSessions(config.openclawHome);
+
+  // Filter by search query if provided
+  let filteredSessions = allSessions;
+  if (q) {
+    const searchTerm = q.toLowerCase();
+    filteredSessions = allSessions.filter(
+      (s) =>
+        s.agent_id.toLowerCase().includes(searchTerm) ||
+        s.session_key.toLowerCase().includes(searchTerm) ||
+        (s.current_task && s.current_task.toLowerCase().includes(searchTerm)),
+    );
+  }
+
+  const total = filteredSessions.length;
+  const offset = (page - 1) * limit;
+  const data = filteredSessions.slice(offset, offset + limit);
+  const hasMore = offset + data.length < total;
+
+  return c.json({
+    data,
+    total,
+    page,
+    limit,
+    hasMore,
+  });
 });
 
 function clampInt(raw: string | undefined, fallback: number, max: number): number {
@@ -46,8 +74,36 @@ api.get("/logs", (c) => {
 
 // Crons
 api.get("/crons", async (c) => {
-  const crons = await collectCrons(config.openclawHome);
-  return c.json(crons);
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
+  const allCrons = await collectCrons(config.openclawHome);
+
+  // Filter by search query if provided
+  let filteredCrons = allCrons;
+  if (q) {
+    const searchTerm = q.toLowerCase();
+    filteredCrons = allCrons.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchTerm) ||
+        c.agent_id.toLowerCase().includes(searchTerm) ||
+        c.schedule.toLowerCase().includes(searchTerm),
+    );
+  }
+
+  const total = filteredCrons.length;
+  const offset = (page - 1) * limit;
+  const data = filteredCrons.slice(offset, offset + limit);
+  const hasMore = offset + data.length < total;
+
+  return c.json({
+    data,
+    total,
+    page,
+    limit,
+    hasMore,
+  });
 });
 
 // Models
@@ -59,7 +115,8 @@ api.get("/models", (c) => {
 // Errors (from SQLite, filtered to error level)
 api.get("/errors", (c) => {
   const limit = clampInt(c.req.query("limit"), 50, 10_000);
-  const result = queryLogs({ level: "error", limit });
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const result = queryLogs({ level: "error", limit, page });
   return c.json(result);
 });
 
