@@ -21,14 +21,39 @@ api.get("/health", async (c) => {
 
 // Sessions
 api.get("/sessions", async (c) => {
-  const sessions = await collectSessions(config.openclawHome);
-  return c.json(sessions);
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
+  const allSessions = await collectSessions(config.openclawHome);
+
+  // Filter by search query if provided
+  let filteredSessions = allSessions;
+  if (q) {
+    const searchTerm = q.toLowerCase();
+    filteredSessions = allSessions.filter(
+      (s) =>
+        s.agent_id.toLowerCase().includes(searchTerm) ||
+        s.session_key.toLowerCase().includes(searchTerm) ||
+        (s.current_task && s.current_task.toLowerCase().includes(searchTerm)),
+    );
+  }
+
+  return c.json(paginateInMemory(filteredSessions, page, limit));
 });
 
 function clampInt(raw: string | undefined, fallback: number, max: number): number {
   const parsed = parseInt(raw || String(fallback), 10);
   if (Number.isNaN(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
+}
+
+function paginateInMemory<T>(items: T[], page: number, limit: number) {
+  const total = items.length;
+  const offset = (page - 1) * limit;
+  const data = items.slice(offset, offset + limit);
+  const hasMore = offset + data.length < total;
+  return { data, total, page, limit, hasMore };
 }
 
 // Logs (from SQLite)
@@ -46,8 +71,25 @@ api.get("/logs", (c) => {
 
 // Crons
 api.get("/crons", async (c) => {
-  const crons = await collectCrons(config.openclawHome);
-  return c.json(crons);
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
+  const allCrons = await collectCrons(config.openclawHome);
+
+  // Filter by search query if provided
+  let filteredCrons = allCrons;
+  if (q) {
+    const searchTerm = q.toLowerCase();
+    filteredCrons = allCrons.filter(
+      (cron) =>
+        cron.name.toLowerCase().includes(searchTerm) ||
+        cron.agent_id.toLowerCase().includes(searchTerm) ||
+        cron.schedule.toLowerCase().includes(searchTerm),
+    );
+  }
+
+  return c.json(paginateInMemory(filteredCrons, page, limit));
 });
 
 // Models
@@ -59,7 +101,8 @@ api.get("/models", (c) => {
 // Errors (from SQLite, filtered to error level)
 api.get("/errors", (c) => {
   const limit = clampInt(c.req.query("limit"), 50, 10_000);
-  const result = queryLogs({ level: "error", limit });
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const result = queryLogs({ level: "error", limit, page });
   return c.json(result);
 });
 
