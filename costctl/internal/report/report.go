@@ -37,7 +37,7 @@ func GenerateFullReport(sessions []parser.Session, format string) string {
 	if format == "json" {
 		data, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
-			return fmt.Sprintf(`{"error": "marshal failed: %s"}`, err)
+			return marshalError(err)
 		}
 		return string(data)
 	}
@@ -67,7 +67,7 @@ func GenerateCronReport(sessions []parser.Session, format string) string {
 			"by_cron":         cronCosts,
 		}, "", "  ")
 		if err != nil {
-			return fmt.Sprintf(`{"error": "marshal failed: %s"}`, err)
+			return marshalError(err)
 		}
 		return string(data)
 	}
@@ -123,7 +123,7 @@ func GenerateModelReport(sessions []parser.Session, format string) string {
 			"by_model":   modelCosts,
 		}, "", "  ")
 		if err != nil {
-			return fmt.Sprintf(`{"error": "marshal failed: %s"}`, err)
+			return marshalError(err)
 		}
 		return string(data)
 	}
@@ -264,6 +264,11 @@ func safePct(value, total float64) float64 {
 		return 0
 	}
 	return (value / total) * 100
+}
+
+func marshalError(err error) string {
+	msg, _ := json.Marshal(err.Error())
+	return fmt.Sprintf(`{"error": %s}`, msg)
 }
 
 func truncate(s string, max int) string {

@@ -2,7 +2,9 @@ package parser
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -110,11 +112,12 @@ func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session,
 		}
 
 		// Pre-filter: skip files older than the requested period
-		var fi fs.FileInfo
+		fi, fiErr := entry.Info()
 		if !after.IsZero() {
-			var infoErr error
-			fi, infoErr = entry.Info()
-			if infoErr == nil && fi.ModTime().Before(after) {
+			if fiErr != nil {
+				continue // Can't determine age — skip conservatively
+			}
+			if fi.ModTime().Before(after) {
 				continue
 			}
 		}
@@ -122,8 +125,12 @@ func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session,
 		sessionID := strings.TrimSuffix(name, ".jsonl")
 		sessionPath := filepath.Join(sessionsDir, name)
 
-		// Pass file info to avoid redundant os.Stat inside parseSessionFile
-		session, err := parseSessionFile(sessionPath, agentName, sessionID, sessionIndex[sessionID], fi)
+		// Pass file info to avoid redundant os.Stat inside parseSessionFile (fi may be nil if fiErr != nil and after is zero)
+		var cachedFi fs.FileInfo
+		if fiErr == nil {
+			cachedFi = fi
+		}
+		session, err := parseSessionFile(sessionPath, agentName, sessionID, sessionIndex[sessionID], cachedFi)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: parsing session %s: %v\n", sessionID, err)
 			continue
@@ -187,7 +194,7 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo, cache
 	defer file.Close()
 
 	dec := json.NewDecoder(file)
-	for dec.More() {
+	for {
 		var entry struct {
 			Type      string          `json:"type"`
 			Timestamp json.RawMessage `json:"timestamp"` // Can be string or number
@@ -195,7 +202,10 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo, cache
 		}
 
 		if err := dec.Decode(&entry); err != nil {
-			continue // Skip malformed lines
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			continue // Skip malformed JSON objects
 		}
 
 		if entry.Type == "message" && len(entry.Message) > 0 {

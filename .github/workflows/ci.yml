@@ -97,3 +97,22 @@ jobs:
 
       - name: Build application
         run: pnpm build
+
+  go-build:
+    name: Go Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: costctl/go.mod
+
+      - name: Build costctl
+        run: go build ./...
+        working-directory: costctl
+
+      - name: Vet costctl
+        run: go vet ./...
+        working-directory: costctl

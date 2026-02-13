@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ func main() {
 	}
 
 	// Parse flags
+	homeDir, _ := os.UserHomeDir()
 	var (
 		period     = "all"
 		agent      = ""
@@ -31,7 +33,7 @@ func main() {
 		models     = false
 		full       = false
 		format     = "text"
-		dataDir    = os.ExpandEnv("$HOME/.openclaw")
+		dataDir    = filepath.Join(homeDir, ".openclaw")
 	)
 
 	for i := 2; i < len(os.Args); i++ {
@@ -89,7 +91,7 @@ func main() {
 	}
 
 	// Pre-compute start time for file-level mtime filtering
-	startTime := computeStartTime(period)
+	startTime, _ := periodRange(period)
 
 	// Parse all sessions
 	sessions, err := parser.ParseAllSessions(dataDir, startTime)
@@ -143,48 +145,33 @@ Examples:
   costctl report --crons --period week`)
 }
 
-func computeStartTime(period string) time.Time {
+// periodRange returns the start (inclusive) and end (exclusive) times for a period.
+// Zero end means no upper bound.
+func periodRange(period string) (start, end time.Time) {
 	now := time.Now()
 	switch period {
 	case "today":
-		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	case "yesterday":
 		yesterday := now.AddDate(0, 0, -1)
-		return time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+		start = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+		end = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	case "week":
-		return now.AddDate(0, 0, -7)
+		start = now.AddDate(0, 0, -7)
 	case "month":
-		return now.AddDate(0, -1, 0)
-	default:
-		return time.Time{} // zero value = no filtering
+		start = now.AddDate(0, -1, 0)
 	}
+	return
 }
 
 func filterByPeriod(sessions []parser.Session, period string) []parser.Session {
-	now := time.Now()
-	var startTime time.Time
-	var endTime time.Time
-	hasEnd := false
-
-	switch period {
-	case "today":
-		startTime = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	case "yesterday":
-		yesterday := now.AddDate(0, 0, -1)
-		startTime = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
-		endTime = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		hasEnd = true
-	case "week":
-		startTime = now.AddDate(0, 0, -7)
-	case "month":
-		startTime = now.AddDate(0, -1, 0)
-	default:
+	start, end := periodRange(period)
+	if start.IsZero() {
 		return sessions
 	}
-
 	var filtered []parser.Session
 	for _, s := range sessions {
-		if s.Timestamp.After(startTime) && (!hasEnd || s.Timestamp.Before(endTime)) {
+		if s.Timestamp.After(start) && (end.IsZero() || s.Timestamp.Before(end)) {
 			filtered = append(filtered, s)
 		}
 	}
