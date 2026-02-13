@@ -94,11 +94,18 @@ function readFrom(
   });
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
-  const batch: LogBatch = [];
+  const MAX_BATCH = 500;
+  let batch: LogBatch = [];
 
   rl.on("line", (line) => {
     const entry = parser(line);
-    if (entry) batch.push({ entry, source });
+    if (entry) {
+      batch.push({ entry, source });
+      if (batch.length >= MAX_BATCH) {
+        onBatch(batch);
+        batch = [];
+      }
+    }
   });
 
   rl.on("close", () => {

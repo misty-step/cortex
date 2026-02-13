@@ -68,14 +68,13 @@ export function batchInsertLogEntries(entries: Omit<LogEntry, "id" | "createdAt"
         entry.metadata ? JSON.stringify(entry.metadata) : null,
       );
     }
+    pruneOldEntries(db);
   });
   runBatch();
-  pruneOldEntries();
 }
 
-/** Delete oldest entries beyond config.maxLogEntries */
-function pruneOldEntries(): void {
-  const db = getDb();
+/** Delete oldest entries beyond config.maxLogEntries. Accepts db to run within caller's transaction. */
+function pruneOldEntries(db: ReturnType<typeof getDb>): void {
   db.prepare(
     `
     DELETE FROM log_entries WHERE id NOT IN (
