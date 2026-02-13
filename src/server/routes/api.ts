@@ -39,24 +39,21 @@ api.get("/sessions", async (c) => {
     );
   }
 
-  const total = filteredSessions.length;
-  const offset = (page - 1) * limit;
-  const data = filteredSessions.slice(offset, offset + limit);
-  const hasMore = offset + data.length < total;
-
-  return c.json({
-    data,
-    total,
-    page,
-    limit,
-    hasMore,
-  });
+  return c.json(paginateInMemory(filteredSessions, page, limit));
 });
 
 function clampInt(raw: string | undefined, fallback: number, max: number): number {
   const parsed = parseInt(raw || String(fallback), 10);
   if (Number.isNaN(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
+}
+
+function paginateInMemory<T>(items: T[], page: number, limit: number) {
+  const total = items.length;
+  const offset = (page - 1) * limit;
+  const data = items.slice(offset, offset + limit);
+  const hasMore = offset + data.length < total;
+  return { data, total, page, limit, hasMore };
 }
 
 // Logs (from SQLite)
@@ -92,18 +89,7 @@ api.get("/crons", async (c) => {
     );
   }
 
-  const total = filteredCrons.length;
-  const offset = (page - 1) * limit;
-  const data = filteredCrons.slice(offset, offset + limit);
-  const hasMore = offset + data.length < total;
-
-  return c.json({
-    data,
-    total,
-    page,
-    limit,
-    hasMore,
-  });
+  return c.json(paginateInMemory(filteredCrons, page, limit));
 });
 
 // Models
