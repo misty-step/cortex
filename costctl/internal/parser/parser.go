@@ -12,23 +12,16 @@ import (
 
 // Session represents a parsed OpenClaw session
 type Session struct {
-	ID        string
-	Agent     string
-	Type      string // interactive, cron, subagent
-	CronID    string // for cron sessions
-	Timestamp time.Time
-	Messages  []Message
-	Cost      float64
-	Tokens    TokenCount
-}
-
-// Message represents a single message in a session
-type Message struct {
-	Role      string
-	Model     string
-	Cost      float64
-	Tokens    TokenCount
-	Timestamp time.Time
+	ID           string
+	Agent        string
+	Type         string // interactive, cron, subagent
+	CronID       string // for cron sessions
+	Timestamp    time.Time
+	Cost         float64
+	Tokens       TokenCount
+	ModelCosts   map[string]float64
+	ModelTokens  map[string]TokenCount
+	MessageCount int
 }
 
 // TokenCount represents input/output tokens
@@ -46,8 +39,9 @@ type SessionInfo struct {
 	StartedAt time.Time `json:"startedAt"`
 }
 
-// ParseAllSessions walks the ~/.openclaw directory and parses all sessions
-func ParseAllSessions(dataDir string) ([]Session, error) {
+// ParseAllSessions walks the ~/.openclaw directory and parses all sessions.
+// If after is non-zero, files with mtime before that time are skipped.
+func ParseAllSessions(dataDir string, after time.Time) ([]Session, error) {
 	var sessions []Session
 
 	agentsDir := filepath.Join(dataDir, "agents")
@@ -62,7 +56,7 @@ func ParseAllSessions(dataDir string) ([]Session, error) {
 		}
 
 		agentName := entry.Name()
-		agentSessions, err := parseAgentSessions(filepath.Join(agentsDir, agentName), agentName)
+		agentSessions, err := parseAgentSessions(filepath.Join(agentsDir, agentName), agentName, after)
 		if err != nil {
 			// Log error but continue with other agents
 			fmt.Fprintf(os.Stderr, "Warning: parsing agent %s: %v\n", agentName, err)
@@ -75,7 +69,7 @@ func ParseAllSessions(dataDir string) ([]Session, error) {
 	return sessions, nil
 }
 
-func parseAgentSessions(agentDir, agentName string) ([]Session, error) {
+func parseAgentSessions(agentDir, agentName string, after time.Time) ([]Session, error) {
 	sessionsDir := filepath.Join(agentDir, "sessions")
 
 	// Check if sessions directory exists
@@ -115,6 +109,13 @@ func parseAgentSessions(agentDir, agentName string) ([]Session, error) {
 			continue
 		}
 
+		// Pre-filter: skip files older than the requested period
+		if !after.IsZero() {
+			if fi, err := entry.Info(); err == nil && fi.ModTime().Before(after) {
+				continue
+			}
+		}
+
 		sessionID := strings.TrimSuffix(name, ".jsonl")
 		sessionPath := filepath.Join(sessionsDir, name)
 
@@ -132,10 +133,12 @@ func parseAgentSessions(agentDir, agentName string) ([]Session, error) {
 
 func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Session, error) {
 	session := Session{
-		ID:     sessionID,
-		Agent:  agentName,
-		Type:   "interactive", // default
-		Tokens: TokenCount{},
+		ID:          sessionID,
+		Agent:       agentName,
+		Type:        "interactive", // default
+		Tokens:      TokenCount{},
+		ModelCosts:  make(map[string]float64),
+		ModelTokens: make(map[string]TokenCount),
 	}
 
 	// Parse session type and cron ID from session key or index info
@@ -182,8 +185,8 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
+		line := scanner.Bytes()
+		if len(line) == 0 {
 			continue
 		}
 
@@ -193,7 +196,7 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 			Message   json.RawMessage `json:"message"`
 		}
 
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+		if err := json.Unmarshal(line, &entry); err != nil {
 			continue // Skip malformed lines
 		}
 
@@ -221,23 +224,19 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 
 			// Only process messages that have a model (assistant/tool responses)
 			if msgContent.Model != "" {
-				msg := Message{
-					Role:  msgContent.Role,
-					Model: msgContent.Model,
-					Cost:  msgContent.Usage.Cost.Total,
-					Tokens: TokenCount{
-						Input:  msgContent.Usage.Input,
-						Output: msgContent.Usage.Output,
-						Total:  msgContent.Usage.TotalTokens,
-					},
-				}
-				session.Messages = append(session.Messages, msg)
-
-				// Accumulate cost and tokens
 				session.Cost += msgContent.Usage.Cost.Total
 				session.Tokens.Input += msgContent.Usage.Input
 				session.Tokens.Output += msgContent.Usage.Output
 				session.Tokens.Total += msgContent.Usage.TotalTokens
+
+				session.ModelCosts[msgContent.Model] += msgContent.Usage.Cost.Total
+				existing := session.ModelTokens[msgContent.Model]
+				existing.Input += msgContent.Usage.Input
+				existing.Output += msgContent.Usage.Output
+				existing.Total += msgContent.Usage.TotalTokens
+				session.ModelTokens[msgContent.Model] = existing
+
+				session.MessageCount++
 			}
 		}
 	}

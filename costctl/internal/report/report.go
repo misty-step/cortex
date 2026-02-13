@@ -103,11 +103,11 @@ func GenerateModelReport(sessions []parser.Session, format string) string {
 
 	for _, s := range sessions {
 		totalCost += s.Cost
-		for _, m := range s.Messages {
-			if m.Model != "" {
-				modelCosts[m.Model] += m.Cost
-				modelTokens[m.Model] += m.Tokens.Total
-			}
+		for model, cost := range s.ModelCosts {
+			modelCosts[model] += cost
+		}
+		for model, tokens := range s.ModelTokens {
+			modelTokens[model] += tokens.Total
 		}
 	}
 
@@ -164,7 +164,7 @@ func buildFullReport(sessions []parser.Session) FullReport {
 	for _, s := range sessions {
 		r.TotalCost += s.Cost
 		r.TotalSessions++
-		r.TotalMessages += len(s.Messages)
+		r.TotalMessages += s.MessageCount
 
 		r.ByAgent[s.Agent] += s.Cost
 		r.ByType[s.Type] += s.Cost
@@ -177,10 +177,8 @@ func buildFullReport(sessions []parser.Session) FullReport {
 			r.ByCron[cronID] += s.Cost
 		}
 
-		for _, m := range s.Messages {
-			if m.Model != "" {
-				r.ByModel[m.Model] += m.Cost
-			}
+		for model, cost := range s.ModelCosts {
+			r.ByModel[model] += cost
 		}
 
 		r.Sessions = append(r.Sessions, SessionSummary{
@@ -188,7 +186,7 @@ func buildFullReport(sessions []parser.Session) FullReport {
 			Agent:    s.Agent,
 			Type:     s.Type,
 			Cost:     s.Cost,
-			Messages: len(s.Messages),
+			Messages: s.MessageCount,
 		})
 	}
 

@@ -76,8 +76,11 @@ func main() {
 		full = true
 	}
 
+	// Pre-compute start time for file-level mtime filtering
+	startTime := computeStartTime(period)
+
 	// Parse all sessions
-	sessions, err := parser.ParseAllSessions(dataDir)
+	sessions, err := parser.ParseAllSessions(dataDir, startTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing sessions: %v\n", err)
 		os.Exit(1)
@@ -126,6 +129,23 @@ Examples:
   costctl report --period yesterday
   costctl report --agent amos --format json
   costctl report --crons --period week`)
+}
+
+func computeStartTime(period string) time.Time {
+	now := time.Now()
+	switch period {
+	case "today":
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	case "yesterday":
+		yesterday := now.AddDate(0, 0, -1)
+		return time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+	case "week":
+		return now.AddDate(0, 0, -7)
+	case "month":
+		return now.AddDate(0, -1, 0)
+	default:
+		return time.Time{} // zero value = no filtering
+	}
 }
 
 func filterByPeriod(sessions []parser.Session, period string) []parser.Session {
