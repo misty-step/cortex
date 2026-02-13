@@ -10,11 +10,17 @@ export function Logs() {
   useEffect(() => {
     const url = level ? `/api/logs?level=${level}` : "/api/logs";
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         setLogs(Array.isArray(data) ? data : (data?.data ?? []));
-        setLoading(false);
-      });
+      })
+      .catch(() => {
+        setLogs([]);
+      })
+      .finally(() => setLoading(false));
   }, [level]);
 
   if (loading) return <div className="p-4">Loading...</div>;

@@ -8,11 +8,17 @@ export function Errors() {
 
   useEffect(() => {
     fetch("/api/errors")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         setErrors(Array.isArray(data) ? data : (data?.data ?? []));
-        setLoading(false);
-      });
+      })
+      .catch(() => {
+        setErrors([]);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="p-4">Loading...</div>;

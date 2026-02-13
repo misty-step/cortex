@@ -11,8 +11,8 @@ import path from "node:path";
 import * as fs from "node:fs";
 import { api } from "./routes/api.js";
 import { sse } from "./routes/sse.js";
-import { initDb, runMigrations } from "./db.js";
-import { startLogTailer } from "./services/log-tailer.js";
+import { initDb, runMigrations, closeDb } from "./db.js";
+import { startLogTailer, stopLogTailer } from "./services/log-tailer.js";
 import { insertLogEntry } from "./services/log-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -73,5 +73,16 @@ serve(
     console.log(`Cortex v2 ready at http://localhost:${info.port}`);
   },
 );
+
+// ─── Graceful Shutdown ──────────────────────────────────────────────────────
+function shutdown() {
+  console.log("[cortex] Shutting down...");
+  stopLogTailer();
+  closeDb();
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 export { app };

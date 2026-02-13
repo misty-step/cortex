@@ -12,6 +12,14 @@ interface LogRow {
   created_at: string;
 }
 
+function safeParseJson(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 function rowToEntry(row: LogRow): LogEntry {
   return {
     id: row.id,
@@ -20,7 +28,7 @@ function rowToEntry(row: LogRow): LogEntry {
     source: row.source as LogEntry["source"],
     message: row.message,
     raw: row.raw,
-    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    metadata: row.metadata ? safeParseJson(row.metadata) : null,
     createdAt: row.created_at,
   };
 }

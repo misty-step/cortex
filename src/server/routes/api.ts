@@ -34,7 +34,9 @@ function clampInt(raw: string | undefined, fallback: number, max: number): numbe
 // Logs (from SQLite)
 api.get("/logs", (c) => {
   const limit = clampInt(c.req.query("limit"), 100, 10_000);
-  const level = c.req.query("level") as LogLevel | undefined;
+  const VALID_LEVELS: Set<string> = new Set(["error", "warn", "info", "debug"]);
+  const rawLevel = c.req.query("level");
+  const level = rawLevel && VALID_LEVELS.has(rawLevel) ? (rawLevel as LogLevel) : undefined;
   const page = clampInt(c.req.query("page"), 1, 100_000);
   const q = c.req.query("q");
 
