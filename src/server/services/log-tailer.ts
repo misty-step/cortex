@@ -28,8 +28,8 @@ export async function startLogTailer(logDir: string, onBatch: LogBatchHandler): 
     if (todayLog) {
       tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onBatch);
     }
-  } catch {
-    // Directory doesn't exist yet
+  } catch (err) {
+    console.error("[log-tailer] Failed to read JSON log directory:", err);
   }
 }
 
@@ -52,8 +52,8 @@ function tailFile(
   try {
     // Start tailing from current end of file — skip historical data
     offset = statSync(filePath).size;
-  } catch {
-    // File doesn't exist yet — watchFile will pick it up when created
+  } catch (err) {
+    console.error(`[log-tailer] Failed to stat ${filePath}, starting from offset 0:`, err);
   }
 
   watchFile(filePath, { interval: 2000 }, (curr, _prev) => {
@@ -114,8 +114,8 @@ function readFrom(
     stream.destroy();
   });
 
-  stream.on("error", () => {
-    // Reset so future polls can retry
+  stream.on("error", (err) => {
+    console.error(`[log-tailer] Stream error reading ${filePath}:`, err);
     onDone(startOffset);
     stream.destroy();
   });

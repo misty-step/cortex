@@ -38,12 +38,12 @@ export async function collectSessions(openclawHome: string): Promise<SessionInfo
             model: s.model as string | undefined,
           });
         }
-      } catch {
-        // No sessions file for this agent
+      } catch (err) {
+        console.error(`[collector/sessions] Failed to read sessions for agent ${agentId}:`, err);
       }
     }
-  } catch {
-    // Agents dir doesn't exist
+  } catch (err) {
+    console.error("[collector/sessions] Failed to read agents directory:", err);
   }
 
   return sessions;
