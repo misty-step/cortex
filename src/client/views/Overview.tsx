@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useApi } from "../hooks/useApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
+import { SearchBar } from "../components/SearchBar";
 
 export function Overview() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const {
     data: health,
     loading: healthLoading,
@@ -22,6 +26,11 @@ export function Overview() {
   const spriteList = sprites ?? [];
   const runningSprites = spriteList.filter((s) => s.status === "running").length;
   const idleSprites = spriteList.filter((s) => s.status === "idle").length;
+
+  // Apply status filter
+  const filteredSprites = statusFilter
+    ? spriteList.filter((s) => s.status === statusFilter)
+    : spriteList;
 
   return (
     <div className="p-4 space-y-6">
@@ -48,15 +57,36 @@ export function Overview() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold mb-2">Fleet Status</h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-semibold">Fleet Status</h3>
+          <div className="flex items-center gap-2">
+            <SearchBar
+              onDebouncedSearch={setSearchQuery}
+              placeholder="Search sprites..."
+              className="w-auto"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-[var(--bg2)] border rounded px-2 py-1 text-sm"
+              aria-label="Filter by status"
+            >
+              <option value="">All Status</option>
+              <option value="running">Running</option>
+              <option value="idle">Idle</option>
+            </select>
+          </div>
+        </div>
         <DataTable
           columns={[
-            { key: "name", header: "Sprite" },
-            { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
-            { key: "agent_count", header: "Agents" },
-            { key: "last_seen", header: "Last Seen" },
+            { key: "name", header: "Sprite", sortable: true },
+            { key: "status", header: "Status", sortable: true, render: (v: string) => <StatusBadge status={v} /> },
+            { key: "agent_count", header: "Agents", sortable: true, getSortValue: (v) => Number(v) || 0 },
+            { key: "last_seen", header: "Last Seen", sortable: true },
           ]}
-          data={spriteList}
+          data={filteredSprites}
+          filterQuery={searchQuery}
+          filterKeys={["name"]}
         />
       </div>
     </div>

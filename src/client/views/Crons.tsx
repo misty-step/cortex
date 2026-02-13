@@ -1,12 +1,21 @@
+import { useState } from "react";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
+import { SearchBar } from "../components/SearchBar";
 import { relativeTime } from "../lib/formatters";
 
 export function Crons() {
-  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/crons");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const { data, loading, error } = useApi<Record<string, unknown>[]>('/api/crons');
   const crons = data ?? [];
+
+  // Apply status filter
+  const filteredCrons = statusFilter
+    ? crons.filter((c) => c.status === statusFilter || c.last_status === statusFilter)
+    : crons;
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load cron jobs</div>;
@@ -14,14 +23,34 @@ export function Crons() {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Cron Jobs ({crons.length})</h2>
-        {crons.length > 0 && <ExportButton data={crons} filename="crons" />}
+        <h2 className="text-2xl font-bold">Cron Jobs ({filteredCrons.length})</h2>
+        <div className="flex items-center gap-2">
+          {crons.length > 0 && <ExportButton data={crons} filename="crons" />}
+          <SearchBar
+            onDebouncedSearch={setSearchQuery}
+            placeholder="Search crons..."
+            className="w-auto"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-[var(--bg2)] border rounded px-2 py-1"
+            aria-label="Filter by status"
+          >
+            <option value="">All Status</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+            <option value="ok">Last Run OK</option>
+            <option value="error">Last Run Error</option>
+          </select>
+        </div>
       </div>
       <DataTable
         columns={[
           {
             key: "name",
             header: "Name",
+            sortable: true,
             render: (v, row) => (
               <div>
                 <div className="font-medium">{String(v)}</div>
@@ -31,31 +60,35 @@ export function Crons() {
               </div>
             ),
           },
-          { key: "agent_id", header: "Agent" },
+          { key: "agent_id", header: "Agent", sortable: true },
           {
             key: "schedule",
             header: "Schedule",
+            sortable: false,
             render: (v: string) => (
               <code className="text-xs bg-[var(--bg2)] px-1 rounded">{v}</code>
             ),
           },
-          { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
+          { key: "status", header: "Status", sortable: true, render: (v: string) => <StatusBadge status={v} /> },
           {
             key: "last_status",
             header: "Last Run",
+            sortable: true,
             render: (v, row) => (
               <div>
                 <StatusBadge status={v === "ok" ? "ok" : v === "error" ? "error" : "warn"} />
                 <div className="text-xs text-[var(--fg3)] mt-1">
                   {row.last_run
                     ? relativeTime(new Date(row.last_run as string).getTime())
-                    : "\u2014"}
+                    : "—"}
                 </div>
               </div>
             ),
           },
         ]}
-        data={crons}
+        data={filteredCrons}
+        filterQuery={searchQuery}
+        filterKeys={["name", "id", "agent_id", "schedule"]}
       />
     </div>
   );
