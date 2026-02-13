@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, statSync, watchFile, unwatchFile } from "node:fs";
 import { createInterface } from "node:readline";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -31,7 +31,7 @@ export async function startLogTailer(logDir: string, onEntry: LogHandler): Promi
       tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onEntry);
     }
   } catch {
-    // Directory doesn't exist
+    // Directory doesn't exist yet
   }
 }
 
@@ -48,22 +48,63 @@ function tailFile(
   source: LogSource,
   onEntry: LogHandler,
 ): void {
+  // Track how far we've read
+  let offset = 0;
+
+  // Check if file exists before attempting to read
   try {
-    const stream = createReadStream(filePath, { encoding: "utf-8" });
-    const rl = createInterface({ input: stream, crlfDelay: Infinity });
-
-    rl.on("line", (line) => {
-      const entry = parser(line);
-      if (entry) onEntry(entry, source);
+    const stat = statSync(filePath);
+    offset = 0; // Start from beginning on first read
+    readFrom(filePath, offset, parser, source, onEntry, (newOffset) => {
+      offset = newOffset;
     });
-
-    watchers.set(filePath, {
-      close: () => {
-        rl.close();
-        stream.destroy();
-      },
-    });
+    offset = stat.size; // After initial read, only watch for new content
   } catch {
-    // File doesn't exist or can't be read
+    // File doesn't exist yet — watchFile will pick it up when created
   }
+
+  // Poll for changes (works even if file doesn't exist yet)
+  watchFile(filePath, { interval: 2000 }, (curr, _prev) => {
+    if (curr.size > offset) {
+      readFrom(filePath, offset, parser, source, onEntry, (newOffset) => {
+        offset = newOffset;
+      });
+    }
+  });
+
+  watchers.set(filePath, {
+    close: () => unwatchFile(filePath),
+  });
+}
+
+function readFrom(
+  filePath: string,
+  startOffset: number,
+  parser: (line: string) => ParsedLogEntry | null,
+  source: LogSource,
+  onEntry: LogHandler,
+  onDone: (newOffset: number) => void,
+): void {
+  const stream = createReadStream(filePath, {
+    encoding: "utf-8",
+    start: startOffset,
+  });
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+
+  let bytesRead = startOffset;
+
+  rl.on("line", (line) => {
+    bytesRead += Buffer.byteLength(line, "utf-8") + 1; // +1 for newline
+    const entry = parser(line);
+    if (entry) onEntry(entry, source);
+  });
+
+  rl.on("close", () => {
+    onDone(bytesRead);
+    stream.destroy();
+  });
+
+  stream.on("error", () => {
+    stream.destroy();
+  });
 }
