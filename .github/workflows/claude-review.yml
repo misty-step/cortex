@@ -37,6 +37,7 @@ jobs:
           perspective: ${{ matrix.perspective }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          timeout: '900'
 
   verdict:
     name: "Council Verdict"
