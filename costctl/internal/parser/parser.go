@@ -140,7 +140,9 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 
 	// Parse session type and cron ID from session key or index info
 	if info.ID != "" {
-		session.Type = info.Type
+		if info.Type != "" {
+			session.Type = info.Type
+		}
 		session.Timestamp = info.StartedAt
 		if info.Label != "" {
 			session.CronID = info.Label
@@ -159,6 +161,13 @@ func parseSessionFile(path, agentName, sessionID string, info SessionInfo) (Sess
 			}
 		} else if strings.Contains(sessionID, ":subagent:") {
 			session.Type = "subagent"
+		}
+	}
+
+	// Fallback: use file modification time when no timestamp from index
+	if session.Timestamp.IsZero() {
+		if fi, err := os.Stat(path); err == nil {
+			session.Timestamp = fi.ModTime()
 		}
 	}
 

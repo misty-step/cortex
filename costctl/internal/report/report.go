@@ -198,9 +198,9 @@ func buildFullReport(sessions []parser.Session) FullReport {
 func formatFullReportText(r FullReport) string {
 	var b strings.Builder
 
-	b.WriteString("╔════════════════════════════════════════════════════════╗\n")
-	b.WriteString("║         OpenClaw Cost Observatory Report               ║\n")
-	b.WriteString("╚════════════════════════════════════════════════════════╝\n\n")
+	b.WriteString("╔══════════════════════════════════════════════════════╗\n")
+	b.WriteString("║       OpenClaw Cost Observatory Report               ║\n")
+	b.WriteString("╚══════════════════════════════════════════════════════╝\n\n")
 
 	b.WriteString(fmt.Sprintf("Total Cost:     $%.4f\n", r.TotalCost))
 	b.WriteString(fmt.Sprintf("Total Sessions: %d\n", r.TotalSessions))
