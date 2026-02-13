@@ -50,7 +50,12 @@ startLogTailer(logDir, (entries) => {
 const app = new Hono();
 
 // Middleware
-app.use("*", cors());
+app.use(
+  "*",
+  cors({
+    origin: [`http://localhost:${config.port}`, "http://localhost:5173"],
+  }),
+);
 
 // Static files (frontend)
 app.use("/*", serveStatic({ root: CLIENT_ROOT }));
