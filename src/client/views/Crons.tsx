@@ -1,35 +1,22 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
+import { ExportButton } from "../components/ExportButton";
+import { relativeTime } from "../lib/formatters";
 
 export function Crons() {
-  const [crons, setCrons] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/crons")
-      .then((r) => r.json())
-      .then((data) => {
-        setCrons(data);
-        setLoading(false);
-      });
-  }, []);
+  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/crons");
+  const crons = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
-
-  // Format relative time
-  const formatRelative = (iso: string | null) => {
-    if (!iso) return "—";
-    const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 60000) return "just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return `${Math.floor(diff / 86400000)}d ago`;
-  };
+  if (error) return <div className="p-4 text-red-500">Failed to load cron jobs</div>;
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Cron Jobs ({crons.length})</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Cron Jobs ({crons.length})</h2>
+        {crons.length > 0 && <ExportButton data={crons} filename="crons" />}
+      </div>
       <DataTable
         columns={[
           {
@@ -60,7 +47,9 @@ export function Crons() {
               <div>
                 <StatusBadge status={v === "ok" ? "ok" : v === "error" ? "error" : "warn"} />
                 <div className="text-xs text-[var(--fg3)] mt-1">
-                  {formatRelative(row.last_run as string | null)}
+                  {row.last_run
+                    ? relativeTime(new Date(row.last_run as string).getTime())
+                    : "\u2014"}
                 </div>
               </div>
             ),

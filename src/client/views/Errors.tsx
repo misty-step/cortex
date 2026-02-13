@@ -1,31 +1,22 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
+import { ExportButton } from "../components/ExportButton";
 import type { LogEntry } from "../../shared/types";
 
 export function Errors() {
-  const [errors, setErrors] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>("/api/errors");
 
-  useEffect(() => {
-    fetch("/api/errors")
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        setErrors(Array.isArray(data) ? data : (data?.data ?? []));
-      })
-      .catch(() => {
-        setErrors([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const errors: LogEntry[] = raw && !error ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load errors</div>;
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Recent Errors</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Recent Errors</h2>
+        {errors.length > 0 && <ExportButton data={errors} filename="errors" />}
+      </div>
       <DataTable
         columns={[
           { key: "timestamp", header: "Time" },
