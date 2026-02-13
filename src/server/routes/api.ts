@@ -4,12 +4,13 @@ import { collectSessions } from "../collectors/sessions.js";
 import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { config } from "../config.js";
-import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const api = new Hono();
 
@@ -25,46 +26,73 @@ api.get("/sessions", async (c) => {
   return c.json(sessions);
 });
 
-// Logs (read from files directly)
+/** Read last N lines from a file using streaming (avoids OOM on large files). */
+async function readTailLines(filePath: string, maxLines: number): Promise<string[]> {
+  const lines: string[] = [];
+  try {
+    const stream = createReadStream(filePath, { encoding: "utf-8" });
+    const rl = createInterface({ input: stream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      lines.push(line);
+      if (lines.length > maxLines * 2) {
+        // Keep a sliding window to avoid unbounded memory
+        lines.splice(0, lines.length - maxLines);
+      }
+    }
+  } catch {
+    // File doesn't exist or is unreadable
+  }
+  return lines.slice(-maxLines);
+}
+
+function clampLimit(raw: string | undefined, fallback: number, max: number): number {
+  const parsed = parseInt(raw || String(fallback), 10);
+  if (Number.isNaN(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, max);
+}
+
+// Logs (streaming tail to avoid OOM on large files)
 api.get("/logs", async (c) => {
-  const limit = parseInt(c.req.query("limit") || "100", 10);
+  const limit = clampLimit(c.req.query("limit"), 100, 10_000);
+  const levelFilter = c.req.query("level");
 
   const logDir = path.join(config.openclawHome, "logs");
-  const entries: { timestamp: string; level: string; source: string; message: string }[] = [];
+  const entries: Array<{ timestamp: string; level: string; source: string; message: string }> = [];
 
   try {
-    const gwLog = await fs.readFile(path.join(logDir, "gateway.log"), "utf-8").catch(() => "");
-    const gwErr = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8").catch(() => "");
+    const gwLines = await readTailLines(path.join(logDir, "gateway.log"), limit * 2);
+    const errLines = await readTailLines(path.join(logDir, "gateway.err.log"), limit);
 
-    for (const line of gwLog.split("\n").filter((l) => l.trim())) {
+    for (const line of gwLines) {
       const match = line.match(
         /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*\[([^\]]+)\]\s*(.+)$/,
       );
       if (match) {
-        const time = match[1] ?? "";
-        const subsystem = match[2] ?? "";
+        const time = match[1]!;
+        const subsystem = match[2]!;
         const message = match[3] ?? "";
         const level = message.toLowerCase().includes("error")
           ? "error"
           : message.toLowerCase().includes("warn")
             ? "warn"
             : "info";
-        if (!c.req.query("level") || level === c.req.query("level")) {
+        if (!levelFilter || level === levelFilter) {
           entries.push({ timestamp: time, level, source: subsystem, message });
         }
       }
     }
 
-    for (const line of gwErr.split("\n").filter((l) => l.trim())) {
+    for (const line of errLines) {
       const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
       if (match) {
-        const time = match[1] ?? "";
-        const message = match[2] ?? "";
+        const time = match[1]!;
+        const message = match[2]!;
         entries.push({ timestamp: time, level: "error", source: "gateway", message });
       }
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    console.error("[api/logs] Failed to read log files:", err);
   }
 
   entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -83,36 +111,33 @@ api.get("/models", (c) => {
   return c.json(models);
 });
 
-// Errors
+// Errors (streaming tail)
 api.get("/errors", async (c) => {
-  const limit = parseInt(c.req.query("limit") || "50", 10);
+  const limit = clampLimit(c.req.query("limit"), 50, 10_000);
   const logDir = path.join(config.openclawHome, "logs");
 
   try {
-    const content = await fs.readFile(path.join(logDir, "gateway.err.log"), "utf-8");
-    const errors = content
-      .split("\n")
-      .filter((l) => l.trim())
-      .slice(-limit)
-      .map((line) => {
-        const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
-        return match
-          ? { timestamp: match[1], level: "error", message: match[2] }
-          : { timestamp: new Date().toISOString(), level: "error", message: line };
-      });
+    const lines = await readTailLines(path.join(logDir, "gateway.err.log"), limit);
+    const errors = lines.map((line) => {
+      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*Z)\s*(.+)$/);
+      return match
+        ? { timestamp: match[1], level: "error", message: match[2] }
+        : { timestamp: new Date().toISOString(), level: "error", message: line };
+    });
     return c.json(errors.reverse());
-  } catch {
+  } catch (err) {
+    console.error("[api/errors] Failed to read error log:", err);
     return c.json([]);
   }
 });
 
-// Sprites (via CLI)
+// Sprites (via CLI — uses execFile to prevent shell injection)
 api.get("/sprites", async (c) => {
   try {
-    const { stdout } = await execAsync("sprite list", { timeout: 15000 });
+    const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 15000 });
     const lines = stdout.split("\n").filter((l) => l.trim() && !l.startsWith("name"));
 
-    const { stdout: psOut } = await execAsync("ps aux | grep -E 'claude|codex' | grep -v grep", {
+    const { stdout: psOut } = await execFileAsync("pgrep", ["-lf", "claude|codex"], {
       timeout: 5000,
     }).catch(() => ({ stdout: "" }));
     const psLines = psOut.split("\n").filter((l) => l.trim());
@@ -129,7 +154,8 @@ api.get("/sprites", async (c) => {
     });
 
     return c.json(sprites);
-  } catch {
+  } catch (err) {
+    console.error("[api/sprites] Failed to collect sprite status:", err);
     return c.json([]);
   }
 });
