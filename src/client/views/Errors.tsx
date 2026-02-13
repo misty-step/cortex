@@ -4,11 +4,12 @@ import { ExportButton } from "../components/ExportButton";
 import type { LogEntry } from "../../shared/types";
 
 export function Errors() {
-  const { data: raw, loading } = useApi<LogEntry[] | { data: LogEntry[] }>("/api/errors");
+  const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>("/api/errors");
 
-  const errors: LogEntry[] = raw ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
+  const errors: LogEntry[] = raw && !error ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load errors</div>;
 
   return (
     <div className="p-4">

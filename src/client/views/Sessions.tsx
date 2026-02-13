@@ -5,10 +5,11 @@ import { ExportButton } from "../components/ExportButton";
 import { relativeTime } from "../lib/formatters";
 
 export function Sessions() {
-  const { data, loading } = useApi<Record<string, unknown>[]>("/api/sessions");
+  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/sessions");
   const sessions = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load sessions</div>;
 
   return (
     <div className="p-4">

@@ -5,10 +5,11 @@ import { ExportButton } from "../components/ExportButton";
 import { relativeTime } from "../lib/formatters";
 
 export function Crons() {
-  const { data, loading } = useApi<Record<string, unknown>[]>("/api/crons");
+  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/crons");
   const crons = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load cron jobs</div>;
 
   return (
     <div className="p-4">

@@ -7,11 +7,12 @@ import type { LogEntry } from "../../shared/types";
 export function Logs() {
   const [level, setLevel] = useState("");
   const url = level ? `/api/logs?level=${level}` : "/api/logs";
-  const { data: raw, loading } = useApi<LogEntry[] | { data: LogEntry[] }>(url);
+  const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>(url);
 
-  const logs: LogEntry[] = raw ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
+  const logs: LogEntry[] = raw && !error ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load logs</div>;
 
   return (
     <div className="p-4">

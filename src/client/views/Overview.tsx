@@ -4,11 +4,20 @@ import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 
 export function Overview() {
-  const { data: health, loading: healthLoading } = useApi<Record<string, unknown>>("/api/health");
-  const { data: sprites, loading: spritesLoading } =
-    useApi<Record<string, unknown>[]>("/api/sprites");
+  const {
+    data: health,
+    loading: healthLoading,
+    error: healthError,
+  } = useApi<Record<string, unknown>>("/api/health");
+  const {
+    data: sprites,
+    loading: spritesLoading,
+    error: spritesError,
+  } = useApi<Record<string, unknown>[]>("/api/sprites");
 
   if (healthLoading || spritesLoading) return <div className="p-4">Loading...</div>;
+  if (healthError || spritesError)
+    return <div className="p-4 text-red-500">Failed to load overview data</div>;
 
   const spriteList = sprites ?? [];
   const runningSprites = spriteList.filter((s) => s.status === "running").length;

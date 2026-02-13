@@ -4,10 +4,11 @@ import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 
 export function Models() {
-  const { data, loading } = useApi<Record<string, unknown>[]>("/api/models");
+  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/models");
   const models = data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">Failed to load models</div>;
 
   return (
     <div className="p-4">
