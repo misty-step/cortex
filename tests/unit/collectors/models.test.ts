@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { collectModels, clearModelCache, getModelCache } from "../../../src/server/collectors/models.js";
+import {
+  collectModels,
+  clearModelCache,
+  getModelCache,
+} from "../../../src/server/collectors/models.js";
 import * as fs from "node:fs";
 
 vi.mock("../../../src/server/config.js", () => ({
@@ -195,42 +199,45 @@ describe("collectModels", () => {
   });
 
   it("should refresh cache after TTL expires", () => {
-    const config = {
-      models: {
-        providers: {
-          openrouter: {
-            models: [{ id: "test/model", name: "Test Model" }],
+    vi.useFakeTimers();
+
+    try {
+      const config = {
+        models: {
+          providers: {
+            openrouter: {
+              models: [{ id: "test/model", name: "Test Model" }],
+            },
           },
         },
-      },
-    };
+      };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+      fs.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const firstCall = collectModels();
-    const initialCache = getModelCache();
+      const firstCall = collectModels();
 
-    // Simulate cache expiration by manipulating timestamp
-    if (initialCache) {
-      initialCache.timestamp = 0; // Expired
+      // Advance past the 60s TTL
+      vi.advanceTimersByTime(60_001);
+
+      // Update config
+      const newConfig = {
+        models: {
+          providers: {
+            openrouter: {
+              models: [{ id: "test/model-v2", name: "Test Model V2" }],
+            },
+          },
+        },
+      };
+      fs.writeFileSync(testConfigPath, JSON.stringify(newConfig));
+
+      const secondCall = collectModels();
+
+      expect(secondCall).not.toBe(firstCall);
+      expect(secondCall[0]!.id).toBe("test/model-v2");
+    } finally {
+      vi.useRealTimers();
     }
-
-    // Update config
-    const newConfig = {
-      models: {
-        providers: {
-          openrouter: {
-            models: [{ id: "test/model-v2", name: "Test Model V2" }],
-          },
-        },
-      },
-    };
-    fs.writeFileSync(testConfigPath, JSON.stringify(newConfig));
-
-    const secondCall = collectModels();
-
-    expect(secondCall).not.toBe(firstCall);
-    expect(secondCall[0]!.id).toBe("test/model-v2");
   });
 
   it("should handle models without names", () => {
