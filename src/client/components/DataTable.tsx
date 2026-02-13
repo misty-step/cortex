@@ -4,7 +4,6 @@ interface Column {
   key: string;
   header: string;
   sortable?: boolean;
-  filterable?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   render?: (value: any, row: any) => React.ReactNode;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,8 +14,6 @@ interface DataTableProps {
   columns: Column[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any[];
-  filterQuery?: string;
-  filterKeys?: string[];
   sortable?: boolean;
   emptyMessage?: string;
 }
@@ -24,42 +21,20 @@ interface DataTableProps {
 export function DataTable({
   columns,
   data,
-  filterQuery = "",
-  filterKeys,
   sortable = true,
   emptyMessage = "No data available",
 }: DataTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(false);
 
-  // Filter data based on query
-  const filteredData = useMemo(() => {
-    if (!filterQuery.trim()) return data;
-
-    const query = filterQuery.toLowerCase();
-    const keysToFilter = filterKeys ?? columns.map((c) => c.key);
-
-    return data.filter((row) => {
-      return keysToFilter.some((key) => {
-        const value = row[key];
-        if (value == null) return false;
-        return String(value).toLowerCase().includes(query);
-      });
-    });
-  }, [data, filterQuery, filterKeys, columns]);
-
-  // Sort filtered data
+  // Sort data
   const sortedData = useMemo(() => {
-    if (!sortable || !sortKey) return filteredData;
+    if (!sortable || !sortKey) return data;
 
-    return [...filteredData].sort((a, b) => {
+    return [...data].sort((a, b) => {
       const column = columns.find((c) => c.key === sortKey);
-      const aVal = column?.getSortValue
-        ? column.getSortValue(a[sortKey], a)
-        : (a[sortKey] ?? "");
-      const bVal = column?.getSortValue
-        ? column.getSortValue(b[sortKey], b)
-        : (b[sortKey] ?? "");
+      const aVal = column?.getSortValue ? column.getSortValue(a[sortKey], a) : (a[sortKey] ?? "");
+      const bVal = column?.getSortValue ? column.getSortValue(b[sortKey], b) : (b[sortKey] ?? "");
 
       // Handle numeric comparison
       if (typeof aVal === "number" && typeof bVal === "number") {
@@ -73,7 +48,7 @@ export function DataTable({
       if (aStr > bStr) return sortDesc ? -1 : 1;
       return 0;
     });
-  }, [filteredData, sortKey, sortDesc, sortable, columns]);
+  }, [data, sortKey, sortDesc, sortable, columns]);
 
   const handleSort = (key: string, columnSortable = true) => {
     if (!sortable || !columnSortable) return;
@@ -90,14 +65,6 @@ export function DataTable({
     return <div className="text-[var(--fg3)] p-4">{emptyMessage}</div>;
   }
 
-  if (!sortedData.length && filterQuery) {
-    return (
-      <div className="text-[var(--fg3)] p-4">
-        No results match your search &ldquo;{filterQuery}&rdquo;
-      </div>
-    );
-  }
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left">
@@ -108,9 +75,7 @@ export function DataTable({
                 key={col.key}
                 onClick={() => handleSort(col.key, col.sortable !== false)}
                 className={`p-3 font-semibold text-[var(--fg2)] select-none ${
-                  col.sortable !== false && sortable
-                    ? "cursor-pointer hover:text-[var(--fg)]"
-                    : ""
+                  col.sortable !== false && sortable ? "cursor-pointer hover:text-[var(--fg)]" : ""
                 }`}
               >
                 {col.header}

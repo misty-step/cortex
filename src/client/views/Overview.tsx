@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useApi } from "../hooks/useApi";
 import { StatusBadge } from "../components/StatusBadge";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
+import { filterByText } from "../lib/formatters";
 
 export function Overview() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,24 +20,27 @@ export function Overview() {
     error: spritesError,
   } = useApi<Record<string, unknown>[]>("/api/sprites");
 
-  if (healthLoading || spritesLoading) return <div className="p-4">Loading...</div>;
-  if (healthError || spritesError)
-    return <div className="p-4 text-red-500">Failed to load overview data</div>;
-
-  const spriteList = sprites ?? [];
+  const spriteList = useMemo(() => sprites ?? [], [sprites]);
   const runningSprites = spriteList.filter((s) => s.status === "running").length;
   const idleSprites = spriteList.filter((s) => s.status === "idle").length;
 
-  // Apply status filter
-  const filteredSprites = statusFilter
-    ? spriteList.filter((s) => s.status === statusFilter)
-    : spriteList;
+  // Apply status filter, then text search
+  const filteredSprites = useMemo(() => {
+    const byStatus = statusFilter
+      ? spriteList.filter((s) => s.status === statusFilter)
+      : spriteList;
+    return filterByText(byStatus, searchQuery, ["name"]);
+  }, [spriteList, statusFilter, searchQuery]);
+
+  if (healthLoading || spritesLoading) return <div className="p-4">Loading...</div>;
+  if (healthError || spritesError)
+    return <div className="p-4 text-red-500">Failed to load overview data</div>;
 
   return (
     <div className="p-4 space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-[var(--fg)]">Factory Overview</h2>
-        {spriteList.length > 0 && <ExportButton data={spriteList} filename="sprites" />}
+        {filteredSprites.length > 0 && <ExportButton data={filteredSprites} filename="sprites" />}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -80,13 +84,21 @@ export function Overview() {
         <DataTable
           columns={[
             { key: "name", header: "Sprite", sortable: true },
-            { key: "status", header: "Status", sortable: true, render: (v: string) => <StatusBadge status={v} /> },
-            { key: "agent_count", header: "Agents", sortable: true, getSortValue: (v) => Number(v) || 0 },
+            {
+              key: "status",
+              header: "Status",
+              sortable: true,
+              render: (v: string) => <StatusBadge status={v} />,
+            },
+            {
+              key: "agent_count",
+              header: "Agents",
+              sortable: true,
+              getSortValue: (v) => Number(v) || 0,
+            },
             { key: "last_seen", header: "Last Seen", sortable: true },
           ]}
           data={filteredSprites}
-          filterQuery={searchQuery}
-          filterKeys={["name"]}
         />
       </div>
     </div>

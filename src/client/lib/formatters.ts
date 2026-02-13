@@ -47,3 +47,21 @@ export function usageColor(percent: number): "green" | "yellow" | "red" {
   if (percent >= 50) return "yellow";
   return "green";
 }
+
+/** Filter an array of objects by a text query across specified keys. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function filterByText<T extends Record<string, any>>(
+  data: T[],
+  query: string,
+  keys: (keyof T & string)[],
+): T[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return data;
+  return data.filter((row) =>
+    keys.some((key) => {
+      const value = row[key];
+      if (value == null) return false;
+      return String(value).toLowerCase().includes(trimmed);
+    }),
+  );
+}

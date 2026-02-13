@@ -1,15 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
-import { relativeTime } from "../lib/formatters";
+import { relativeTime, filterByText } from "../lib/formatters";
 
 export function Sessions() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data, loading, error } = useApi<Record<string, unknown>[]>('/api/sessions');
-  const sessions = data ?? [];
+  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/sessions");
+  const filteredSessions = useMemo(() => {
+    const sessions = data ?? [];
+    return filterByText(sessions, searchQuery, [
+      "agent_id",
+      "session_key",
+      "status",
+      "model",
+      "current_task",
+    ]);
+  }, [data, searchQuery]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load sessions</div>;
@@ -19,7 +28,9 @@ export function Sessions() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Agent Sessions</h2>
         <div className="flex items-center gap-2">
-          {sessions.length > 0 && <ExportButton data={sessions} filename="sessions" />}
+          {filteredSessions.length > 0 && (
+            <ExportButton data={filteredSessions} filename="sessions" />
+          )}
           <SearchBar
             onDebouncedSearch={setSearchQuery}
             placeholder="Search sessions..."
@@ -40,7 +51,12 @@ export function Sessions() {
               </span>
             ),
           },
-          { key: "status", header: "Status", sortable: true, render: (v: string) => <StatusBadge status={v} /> },
+          {
+            key: "status",
+            header: "Status",
+            sortable: true,
+            render: (v: string) => <StatusBadge status={v} />,
+          },
           {
             key: "model",
             header: "Model",
@@ -55,9 +71,7 @@ export function Sessions() {
             render: (v: string | null) => (v ? relativeTime(new Date(v).getTime()) : "—"),
           },
         ]}
-        data={sessions}
-        filterQuery={searchQuery}
-        filterKeys={["agent_id", "session_key", "status", "model", "current_task"]}
+        data={filteredSessions}
       />
     </div>
   );
