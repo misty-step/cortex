@@ -50,6 +50,27 @@ export function insertLogEntry(entry: Omit<LogEntry, "id" | "createdAt">): void 
   );
 }
 
+export function batchInsertLogEntries(entries: Omit<LogEntry, "id" | "createdAt">[]): void {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO log_entries (timestamp, level, source, message, raw, metadata)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  const runBatch = db.transaction(() => {
+    for (const entry of entries) {
+      stmt.run(
+        entry.timestamp,
+        entry.level,
+        entry.source,
+        entry.message,
+        entry.raw || null,
+        entry.metadata ? JSON.stringify(entry.metadata) : null,
+      );
+    }
+  });
+  runBatch();
+}
+
 export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {
   const db = getDb();
   const { level, source, q, page = 1, limit = 100 } = query;
@@ -67,8 +88,9 @@ export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {
     params.push(source);
   }
   if (q) {
-    conditions.push("(message LIKE ? OR raw LIKE ?)");
-    params.push(`%${q}%`, `%${q}%`);
+    // Use FTS5 for full-text search with prefix matching
+    conditions.push("id IN (SELECT rowid FROM log_entries_fts WHERE log_entries_fts MATCH ?)");
+    params.push(q + "*");
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -78,7 +100,7 @@ export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {
 
   const dataStmt = db.prepare(`
     SELECT * FROM log_entries ${whereClause}
-    ORDER BY timestamp DESC
+    ORDER BY timestamp DESC, id DESC
     LIMIT ? OFFSET ?
   `);
 
