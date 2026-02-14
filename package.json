@@ -4,17 +4,15 @@
   "private": true,
   "type": "module",
   "description": "OpenClaw observability dashboard — real-time monitoring for gateway health, sessions, logs, and operations",
-  "packageManager": "pnpm@10.28.2",
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=10.0.0"
+    "bun": ">=1.2.0"
   },
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch src/server/index.ts",
-    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:server\"",
+    "dev:server": "bun --watch src/server/index.ts",
+    "dev:all": "concurrently \"bun run dev\" \"bun run dev:server\"",
     "build": "vite build && tsc -p tsconfig.server.json",
-    "start": "node dist/server/index.js",
+    "start": "bun dist/server/index.js",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier --write .",
@@ -23,13 +21,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
-    "db:migrate": "tsx src/server/db.ts --migrate",
+    "validate": "bun run typecheck && bun run lint && bun run test && bun run build",
+    "db:migrate": "bun src/server/db.ts --migrate",
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.0",
-    "better-sqlite3": "^11.8.0",
     "cron-parser": "^5.5.0",
     "hono": "^4.7.0"
   },
@@ -39,12 +35,14 @@
     "@playwright/test": "^1.50.0",
     "@tailwindcss/vite": "^4.1.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/bun": "^1.2.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "@vitest/coverage-v8": "^3.0.0",
     "autoprefixer": "^10.4.0",
+    "better-sqlite3": "^12.6.2",
     "concurrently": "^9.1.0",
     "eslint": "^9.20.0",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -56,17 +54,14 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.0",
     "tailwindcss": "^4.1.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.24.0",
     "vite": "^6.1.0",
     "vitest": "^3.0.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "esbuild",
-      "lefthook"
-    ]
-  }
+  "trustedDependencies": [
+    "better-sqlite3",
+    "esbuild",
+    "lefthook"
+  ]
 }

@@ -3,46 +3,46 @@
 ## Quick Start
 
 ```bash
-pnpm install          # Install dependencies
-pnpm dev              # Start Vite dev server (frontend, port 5173)
-pnpm dev:server       # Start Hono server (API, port 18790)
-pnpm dev:all          # Start both concurrently
+bun install              # Install dependencies
+bun run dev              # Start Vite dev server (frontend, port 5173)
+bun run dev:server       # Start Hono server (API, port 18790)
+bun run dev:all          # Start both concurrently
 ```
 
 ## Essential Commands
 
 ```bash
 # Development
-pnpm dev              # Vite dev server with HMR
-pnpm dev:server       # Hono API server with tsx watch
-pnpm dev:all          # Both servers concurrently
+bun run dev              # Vite dev server with HMR
+bun run dev:server       # Hono API server with bun --watch
+bun run dev:all          # Both servers concurrently
 
 # Quality
-pnpm lint             # ESLint (flat config, zero warnings)
-pnpm lint:fix         # ESLint with auto-fix
-pnpm typecheck        # tsc --noEmit
-pnpm format           # Prettier
+bun run lint             # ESLint (flat config, zero warnings)
+bun run lint:fix         # ESLint with auto-fix
+bun run typecheck        # tsc --noEmit
+bun run format           # Prettier
 
 # Testing
-pnpm test             # Vitest (unit tests)
-pnpm test:watch       # Vitest in watch mode
-pnpm test:coverage    # Vitest with v8 coverage
-pnpm test:e2e         # Playwright E2E tests
+bun run test             # Vitest (unit tests)
+bun run test:watch       # Vitest in watch mode
+bun run test:coverage    # Vitest with v8 coverage
+bun run test:e2e         # Playwright E2E tests
 
 # Build
-pnpm build            # Vite (client) + tsc (server)
-pnpm start            # Run production server
+bun run build            # Vite (client) + tsc (server)
+bun run start            # Run production server
 
 # Validate all
-pnpm validate         # typecheck + lint + test + build
+bun run validate         # typecheck + lint + test + build
 ```
 
 ## Architecture
 
 ### Server (`src/server/`)
-- **Framework**: Hono on Node.js
+- **Framework**: Hono on Bun
 - **Port**: 18790 (same as cortex.js MVP)
-- **Database**: SQLite via better-sqlite3 with FTS5
+- **Database**: SQLite via bun:sqlite with FTS5
 - **Real-time**: SSE to browser clients
 
 ### Client (`src/client/`)
@@ -88,4 +88,4 @@ pnpm validate         # typecheck + lint + test + build
 - ESLint flat config (eslint.config.mjs)
 - `no-console` enforced in client code, allowed in server
 - Semantic commits via commitlint (`feat:`, `fix:`, `chore:`, etc.)
-- pnpm only (enforced via `packageManager` field)
+- Bun only (enforced via `engines` field)
