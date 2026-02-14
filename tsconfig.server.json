@@ -6,7 +6,8 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "declaration": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": ["bun"]
   },
   "include": ["src/server/**/*.ts", "src/shared/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/client/**"]

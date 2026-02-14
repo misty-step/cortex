@@ -32,32 +32,28 @@ if (fs.existsSync(migrationsDir)) {
 
 // ─── Log Tailer ──────────────────────────────────────────────────────────────
 const logDir = path.join(config.openclawHome, "logs");
-startLogTailer(
-  logDir,
-  (entries) => {
-    const logEntries: Omit<LogEntry, "id" | "createdAt">[] = entries.map(({ entry, source }) => ({
-      timestamp: entry.time,
-      level: entry.level as "error" | "warn" | "info" | "debug",
-      source,
-      message: entry.message,
-      raw: null,
-      metadata: null,
-    }));
+startLogTailer(logDir, config.logDir, (entries) => {
+  const logEntries: Omit<LogEntry, "id" | "createdAt">[] = entries.map(({ entry, source }) => ({
+    timestamp: entry.time,
+    level: entry.level as "error" | "warn" | "info" | "debug",
+    source,
+    message: entry.message,
+    raw: null,
+    metadata: null,
+  }));
 
-    // Persist to database
-    batchInsertLogEntries(logEntries);
+  // Persist to database
+  batchInsertLogEntries(logEntries);
 
-    // Broadcast to connected SSE clients
-    for (const entry of logEntries) {
-      broadcast({
-        type: "log_entry",
-        data: entry,
-        timestamp: Date.now(),
-      });
-    }
-  },
-  config.logDir,
-).catch((err) => {
+  // Broadcast to connected SSE clients
+  for (const entry of logEntries) {
+    broadcast({
+      type: "log_entry",
+      data: entry,
+      timestamp: Date.now(),
+    });
+  }
+}).catch((err) => {
   console.error("[cortex] Log tailer failed to start:", err);
 });
 

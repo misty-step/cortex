@@ -81,6 +81,41 @@ export interface AgentStatus {
   enabled: boolean;
 }
 
+// ─── Agent Detail Types ────────────────────────────────────────────────────
+
+export interface AgentDetail extends AgentStatus {
+  workspace: string | null;
+  model: { primary: string; fallbacks: string[] } | null;
+  subagents: string[];
+  availableModels: AgentModelInfo[];
+  authProfiles: AgentAuthProfile[];
+  sessions: AgentSessionEntry[];
+  skills: string[];
+}
+
+export interface AgentModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  reasoning: boolean;
+  contextWindow: number | null;
+  maxTokens: number | null;
+}
+
+export interface AgentAuthProfile {
+  provider: string;
+  profileId: string;
+  errorCount: number;
+  lastUsed: number | null;
+  lastFailure: number | null;
+}
+
+export interface AgentSessionEntry {
+  key: string;
+  updatedAt: number;
+  model: string | null;
+}
+
 // ─── API Query Types ────────────────────────────────────────────────────────
 
 export interface LogQuery {

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
@@ -55,7 +56,15 @@ export function Agents() {
 
       <DataTable
         columns={[
-          { key: "name", header: "Agent Name" },
+          {
+            key: "name",
+            header: "Agent Name",
+            render: (v: string, row: AgentStatus) => (
+              <Link to={`/agents/${row.id}`} className="text-blue-400 hover:underline">
+                {v}
+              </Link>
+            ),
+          },
           { key: "id", header: "Agent ID" },
           {
             key: "online",

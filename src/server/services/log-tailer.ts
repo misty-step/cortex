@@ -15,8 +15,8 @@ const watchers = new Map<string, { close: () => void }>();
 
 export async function startLogTailer(
   logDir: string,
+  jsonLogDir: string,
   onBatch: LogBatchHandler,
-  jsonLogDir?: string,
 ): Promise<void> {
   const gwLogPath = path.join(logDir, "gateway.log");
   tailFile(gwLogPath, parseGatewayLogLine, "gateway-log", onBatch);
@@ -24,13 +24,12 @@ export async function startLogTailer(
   const gwErrPath = path.join(logDir, "gateway.err.log");
   tailFile(gwErrPath, parseGatewayErrLine, "gateway-err", onBatch);
 
-  const jsonDir = jsonLogDir ?? "/tmp/openclaw";
   try {
-    const files = await fs.readdir(jsonDir);
+    const files = await fs.readdir(jsonLogDir);
     const today = new Date().toISOString().slice(0, 10);
     const todayLog = files.find((f) => f.includes(today) && f.endsWith(".log"));
     if (todayLog) {
-      tailFile(path.join(jsonDir, todayLog), parseJsonLogLine, "json-log", onBatch);
+      tailFile(path.join(jsonLogDir, todayLog), parseJsonLogLine, "json-log", onBatch);
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {

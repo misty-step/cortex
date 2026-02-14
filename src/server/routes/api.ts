@@ -4,6 +4,7 @@ import { collectSessions } from "../collectors/sessions.js";
 import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { collectAgents } from "../collectors/agents.js";
+import { collectAgentDetail } from "../collectors/agent-detail.js";
 import { config } from "../config.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -97,6 +98,19 @@ api.get("/crons", async (c) => {
 api.get("/models", async (c) => {
   const models = await collectModels();
   return c.json(models);
+});
+
+// Agent detail
+api.get("/agents/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[\w-]+$/.test(id)) {
+    return c.json({ error: "Invalid agent ID" }, 400);
+  }
+  const detail = await collectAgentDetail(config.openclawHome, id);
+  if (!detail) {
+    return c.json({ error: "Agent not found" }, 404);
+  }
+  return c.json(detail);
 });
 
 // Agents status dashboard

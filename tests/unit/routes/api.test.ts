@@ -48,6 +48,44 @@ vi.mock("../../../src/server/collectors/models", () => ({
     ]),
 }));
 
+vi.mock("../../../src/server/collectors/agents", () => ({
+  collectAgents: vi.fn().mockResolvedValue([
+    {
+      id: "main",
+      name: "Kaylee",
+      online: true,
+      sessionCount: 3,
+      lastHeartbeat: "2026-02-12T11:00:00.000Z",
+      currentModel: "claude-opus-4-6",
+      enabled: true,
+    },
+  ]),
+}));
+
+vi.mock("../../../src/server/collectors/agent-detail", () => ({
+  collectAgentDetail: vi.fn().mockImplementation((_home: string, id: string) => {
+    if (id === "main") {
+      return Promise.resolve({
+        id: "main",
+        name: "Kaylee",
+        online: true,
+        sessionCount: 3,
+        lastHeartbeat: "2026-02-12T11:00:00.000Z",
+        currentModel: "claude-opus-4-6",
+        enabled: true,
+        workspace: "/home/user/workspace",
+        model: { primary: "anthropic/claude-opus-4-6", fallbacks: [] },
+        subagents: ["amos"],
+        availableModels: [],
+        authProfiles: [],
+        sessions: [],
+        skills: ["github"],
+      });
+    }
+    return Promise.resolve(null);
+  }),
+}));
+
 // Mock child_process for sprites route
 const { mockExecFile } = vi.hoisted(() => ({
   mockExecFile: vi.fn(),
@@ -415,6 +453,31 @@ describe("API routes", () => {
     // Invalid source should be ignored, returning all errors
     expect(body.total).toBe(1);
     expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
+  // ── GET /agents/:id ─────────────────────────────────────────────────
+
+  it("should return agent detail for valid agent", async () => {
+    const res = await api.request("/agents/main");
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { id: string; workspace: string; skills: string[] };
+    expect(body.id).toBe("main");
+    expect(body.workspace).toBe("/home/user/workspace");
+    expect(body.skills).toEqual(["github"]);
+  });
+
+  it("should return 404 for nonexistent agent", async () => {
+    const res = await api.request("/agents/nonexistent");
+    expect(res.status).toBe(404);
+
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Agent not found");
+  });
+
+  it("should return 400 for invalid agent ID", async () => {
+    const res = await api.request("/agents/bad%20agent!");
+    expect(res.status).toBe(400);
   });
 
   // ── GET /sprites ──────────────────────────────────────────────────────
