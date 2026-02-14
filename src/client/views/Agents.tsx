@@ -1,6 +1,7 @@
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
+import { relativeTime } from "../lib/formatters";
 import type { AgentStatus } from "../../shared/types";
 
 function OnlineBadge({ online }: { online: boolean }) {
@@ -24,20 +25,11 @@ function EnabledBadge({ enabled }: { enabled: boolean }) {
   );
 }
 
-function formatRelativeTime(isoString: string | null): string {
+function formatHeartbeat(isoString: string | null): string {
   if (!isoString) return "—";
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
-  return `${diffDay}d ago`;
+  const ms = new Date(isoString).getTime();
+  if (isNaN(ms)) return "—";
+  return relativeTime(ms);
 }
 
 export function Agents() {
@@ -78,7 +70,7 @@ export function Agents() {
           {
             key: "lastHeartbeat",
             header: "Last Heartbeat",
-            render: (v: string | null) => formatRelativeTime(v),
+            render: (v: string | null) => formatHeartbeat(v),
           },
           { key: "currentModel", header: "Model" },
           {
