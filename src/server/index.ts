@@ -32,7 +32,7 @@ if (fs.existsSync(migrationsDir)) {
 
 // ─── Log Tailer ──────────────────────────────────────────────────────────────
 const logDir = path.join(config.openclawHome, "logs");
-startLogTailer(logDir, (entries) => {
+startLogTailer(logDir, config.logDir, (entries) => {
   const logEntries: Omit<LogEntry, "id" | "createdAt">[] = entries.map(({ entry, source }) => ({
     timestamp: entry.time,
     level: entry.level as "error" | "warn" | "info" | "debug",
