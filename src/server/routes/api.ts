@@ -8,7 +8,7 @@ import { collectAgentDetail } from "../collectors/agent-detail.js";
 import { collectSprites } from "../collectors/sprites.js";
 import { config } from "../config.js";
 import { queryLogs } from "../services/log-store.js";
-import type { LogLevel, LogSource, SpriteStatus } from "../../shared/types.js";
+import type { LogLevel, LogSource } from "../../shared/types.js";
 
 const api = new Hono();
 
