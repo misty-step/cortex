@@ -18,6 +18,20 @@ const SPRITE_NAMES = [
 ];
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 8000; // 8 seconds cache for polled endpoint
+
+// In-memory cache for collectSprites to prevent N+1 parsing on every poll
+let spritesCache: { data: SpriteStatus[]; timestamp: number } | null = null;
+
+// Export for testing
+export function clearSpritesCache(): void {
+  spritesCache = null;
+}
+
+// Escape regex special characters in sprite names
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 interface ProcessInfo {
   pid: string;
@@ -50,7 +64,8 @@ async function getSpriteProcesses(): Promise<ProcessInfo[]> {
 
 async function getSpriteList(): Promise<string[]> {
   try {
-    const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 15000 });
+    // Reduced timeout from 15s to 5s to stay within polling interval (10s)
+    const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 5000 });
     return stdout
       .split("\n")
       .filter((l) => l.trim() && !l.startsWith("name"))
@@ -67,15 +82,14 @@ async function readSpriteSession(
   spriteName: string,
 ): Promise<SessionMeta | null> {
   // Map sprite names to agent IDs (usually same, but handle special cases)
+  // NOTE: cadence-ui sprite maps to "cadence" agent directory (legacy naming)
   const agentId = spriteName === "cadence-ui" ? "cadence" : spriteName;
   const sessionsFile = path.join(openclawHome, "agents", agentId, "sessions", "sessions.json");
 
   try {
-    // Check file size before reading to avoid memory spikes on large files
-    const stat = await fs.stat(sessionsFile);
-    if (stat.size > 5 * 1024 * 1024) return null;
-
+    // Read file directly and check size from content length to avoid redundant stat syscall
     const content = await fs.readFile(sessionsFile, "utf-8");
+    if (content.length > 5 * 1024 * 1024) return null;
     const sessions = JSON.parse(content) as Record<string, SessionMeta>;
 
     // Single-pass O(N) to find the most recently active session
@@ -105,7 +119,9 @@ function determineStatus(
   const lastActivity = session.updatedAt ?? session.createdAt ?? 0;
   const isStale = now - lastActivity > STALE_THRESHOLD_MS;
 
-  if (session.systemSent) return "complete";
+  // Complete only applies to recent sessions (< 5min old)
+  // A stale completed session should show as stale/dead, not complete
+  if (session.systemSent && !isStale) return "complete";
   if (isStale) return "stale";
   return "idle";
 }
@@ -118,16 +134,30 @@ function calculateRuntime(session: SessionMeta | null): number | null {
 }
 
 export async function collectSprites(openclawHome: string): Promise<SpriteStatus[]> {
+  // Check cache first to avoid expensive collection on every poll
   const now = Date.now();
+  if (spritesCache && now - spritesCache.timestamp < CACHE_TTL_MS) {
+    return spritesCache.data;
+  }
+
   const [spriteNames, processes] = await Promise.all([getSpriteList(), getSpriteProcesses()]);
 
-  // Pre-compile regexes once for all sprites
-  const namePatterns = new Map(spriteNames.map((n) => [n, new RegExp(`\\b${n}\\b`)]));
+  // Pre-compile regexes once for all sprites, escaping special regex characters
+  const namePatterns = new Map(spriteNames.map((n) => [n, new RegExp(`\\b${escapeRegex(n)}\\b`)]));
+
+  // Single-pass O(N) process counting using a Map instead of O(N*M) filtering
+  const agentCounts = new Map<string, number>();
+  for (const process of processes) {
+    for (const [name, pattern] of Array.from(namePatterns.entries())) {
+      if (pattern.test(process.cmd)) {
+        agentCounts.set(name, (agentCounts.get(name) ?? 0) + 1);
+      }
+    }
+  }
 
   const sprites = await Promise.all(
     spriteNames.map(async (name) => {
-      const namePattern = namePatterns.get(name)!;
-      const agentCount = processes.filter((p) => namePattern.test(p.cmd)).length;
+      const agentCount = agentCounts.get(name) ?? 0;
       const session = await readSpriteSession(openclawHome, name);
       const status = determineStatus(agentCount, session, now);
 
@@ -147,9 +177,13 @@ export async function collectSprites(openclawHome: string): Promise<SpriteStatus
   );
 
   // Sort: running first, then by name
-  return sprites.sort((a, b) => {
+  const result = sprites.sort((a, b) => {
     if (a.status === "running" && b.status !== "running") return -1;
     if (b.status === "running" && a.status !== "running") return 1;
     return a.name.localeCompare(b.name);
   });
+
+  // Update cache
+  spritesCache = { data: result, timestamp: now };
+  return result;
 }

@@ -19,7 +19,7 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 // Import after mocks
-import { collectSprites } from "../../../src/server/collectors/sprites";
+import { collectSprites, clearSpritesCache } from "../../../src/server/collectors/sprites";
 
 describe("collectSprites", () => {
   const mockOpenclawHome = "/home/test/.openclaw";
@@ -28,8 +28,8 @@ describe("collectSprites", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-13T10:00:00.000Z"));
-    // Default: stat returns a small file size (readFile tests override as needed)
-    mockStat.mockResolvedValue({ size: 1024 });
+    // Clear cache before each test
+    clearSpritesCache();
   });
 
   afterEach(() => {
