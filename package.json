@@ -49,7 +49,7 @@
     "eslint": "^9.20.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.0",
-    "lefthook": "^1.10.0",
+    "lefthook": "^2.1.1",
     "postcss": "^8.5.0",
     "prettier": "^3.4.0",
     "react": "^19.0.0",
