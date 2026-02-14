@@ -171,11 +171,13 @@ describe("collectModels", () => {
   });
 
   it("should fallback on invalid JSON", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     fsSync.writeFileSync(testConfigPath, "not valid json");
 
     const models = await collectModels();
 
     expect(models).toHaveLength(6);
+    vi.restoreAllMocks();
   });
 
   it("should cache models for subsequent calls", async () => {
@@ -240,7 +242,7 @@ describe("collectModels", () => {
     }
   });
 
-  it("should use shorter TTL for fallback models", async () => {
+  it("should use same TTL for fallback models", async () => {
     vi.useFakeTimers();
 
     try {
@@ -249,8 +251,8 @@ describe("collectModels", () => {
       expect(firstCall).toHaveLength(6);
       expect(getModelCache()!.isFallback).toBe(true);
 
-      // Advance 11 seconds (past 10s fallback TTL but under 60s live TTL)
-      vi.advanceTimersByTime(11_000);
+      // Advance past the 60s TTL
+      vi.advanceTimersByTime(60_001);
 
       // Now write a real config
       const config = {
@@ -271,6 +273,47 @@ describe("collectModels", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("should skip models with missing or non-string id", async () => {
+    const config = {
+      models: {
+        providers: {
+          openrouter: {
+            models: [
+              { id: "valid/model", name: "Valid" },
+              { name: "No ID" },
+              { id: 123, name: "Numeric ID" },
+              { id: null, name: "Null ID" },
+              null,
+              undefined,
+            ],
+          },
+        },
+      },
+    };
+
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
+
+    const models = await collectModels();
+
+    expect(models).toHaveLength(1);
+    expect(models[0]!.id).toBe("valid/model");
+  });
+
+  it("should warn when config file has invalid JSON", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    fsSync.writeFileSync(testConfigPath, "not valid json");
+
+    await collectModels();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to parse openclaw config"),
+      expect.any(String),
+    );
+
+    warnSpy.mockRestore();
   });
 
   it("should handle models without names", async () => {

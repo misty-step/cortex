@@ -12,7 +12,7 @@ interface CachedModels {
 
 let modelCache: CachedModels | null = null;
 const CACHE_TTL_MS = 60_000; // 1 minute
-const FALLBACK_CACHE_TTL_MS = 10_000; // 10 seconds — retry sooner when using fallback
+const FALLBACK_CACHE_TTL_MS = 60_000; // Same as standard TTL — missing config won't appear in seconds
 
 // Fallback static list when gateway config is unavailable
 const FALLBACK_MODELS: ModelInfo[] = [
@@ -67,8 +67,11 @@ function parseConfigModels(content: string): ModelInfo[] | null {
 
     const providers = parsed.models?.providers ?? {};
     for (const [providerName, provider] of Object.entries(providers)) {
-      for (const model of provider.models ?? []) {
-        // Normalize ID - remove openrouter/ prefix if present for consistency
+      const validModels = (provider.models ?? []).filter(
+        (model): model is { id: string; name: string } => typeof model?.id === "string",
+      );
+      for (const model of validModels) {
+        // OpenRouter prefixes model IDs with "openrouter/" but the gateway expects bare IDs
         const id = model.id.replace(/^openrouter\//, "");
         if (!seen.has(id)) {
           seen.add(id);
@@ -83,7 +86,8 @@ function parseConfigModels(content: string): ModelInfo[] | null {
     }
 
     return models.length > 0 ? models : null;
-  } catch {
+  } catch (err) {
+    console.warn(`Failed to parse openclaw config:`, err instanceof Error ? err.message : err);
     return null;
   }
 }
