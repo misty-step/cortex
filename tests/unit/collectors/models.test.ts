@@ -4,7 +4,7 @@ import {
   clearModelCache,
   getModelCache,
 } from "../../../src/server/collectors/models.js";
-import * as fs from "node:fs";
+import * as fsSync from "node:fs";
 
 vi.mock("../../../src/server/config.js", () => ({
   config: {
@@ -18,21 +18,21 @@ describe("collectModels", () => {
   beforeEach(() => {
     clearModelCache();
     // Ensure test directory exists
-    fs.mkdirSync("/tmp/test-openclaw", { recursive: true });
+    fsSync.mkdirSync("/tmp/test-openclaw", { recursive: true });
   });
 
   afterEach(() => {
     // Clean up test file
     try {
-      fs.unlinkSync(testConfigPath);
-      fs.rmdirSync("/tmp/test-openclaw");
+      fsSync.unlinkSync(testConfigPath);
+      fsSync.rmdirSync("/tmp/test-openclaw");
     } catch {
       // Ignore cleanup errors
     }
   });
 
-  it("should return fallback models when config file does not exist", () => {
-    const models = collectModels();
+  it("should return fallback models when config file does not exist", async () => {
+    const models = await collectModels();
 
     expect(models).toHaveLength(6);
     expect(models[0]!.id).toBe("moonshotai/kimi-k2.5");
@@ -40,7 +40,7 @@ describe("collectModels", () => {
     expect(models[0]!.status).toBe("available");
   });
 
-  it("should parse models from OpenClaw config file", () => {
+  it("should parse models from OpenClaw config file", async () => {
     const config = {
       models: {
         providers: {
@@ -71,9 +71,9 @@ describe("collectModels", () => {
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
+    const models = await collectModels();
 
     expect(models).toHaveLength(3);
     expect(models).toContainEqual({
@@ -96,7 +96,7 @@ describe("collectModels", () => {
     });
   });
 
-  it("should normalize model IDs by removing openrouter/ prefix", () => {
+  it("should normalize model IDs by removing openrouter/ prefix", async () => {
     const config = {
       models: {
         providers: {
@@ -112,15 +112,15 @@ describe("collectModels", () => {
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
+    const models = await collectModels();
 
     expect(models).toHaveLength(1);
     expect(models[0]!.id).toBe("anthropic/claude-sonnet-4");
   });
 
-  it("should deduplicate models by ID", () => {
+  it("should deduplicate models by ID", async () => {
     const config = {
       models: {
         providers: {
@@ -134,51 +134,51 @@ describe("collectModels", () => {
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
+    const models = await collectModels();
 
     expect(models).toHaveLength(1);
     expect(models[0]!.id).toBe("moonshotai/kimi-k2.5");
   });
 
-  it("should fallback when config has no models section", () => {
+  it("should fallback when config has no models section", async () => {
     const config = {
       logging: { level: "info" },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
+    const models = await collectModels();
 
     // Should return fallback
     expect(models).toHaveLength(6);
     expect(models[0]!.id).toBe("moonshotai/kimi-k2.5");
   });
 
-  it("should fallback when config has empty providers", () => {
+  it("should fallback when config has empty providers", async () => {
     const config = {
       models: {
         providers: {},
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
-
-    expect(models).toHaveLength(6);
-  });
-
-  it("should fallback on invalid JSON", () => {
-    fs.writeFileSync(testConfigPath, "not valid json");
-
-    const models = collectModels();
+    const models = await collectModels();
 
     expect(models).toHaveLength(6);
   });
 
-  it("should cache models for subsequent calls", () => {
+  it("should fallback on invalid JSON", async () => {
+    fsSync.writeFileSync(testConfigPath, "not valid json");
+
+    const models = await collectModels();
+
+    expect(models).toHaveLength(6);
+  });
+
+  it("should cache models for subsequent calls", async () => {
     const config = {
       models: {
         providers: {
@@ -189,16 +189,16 @@ describe("collectModels", () => {
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const firstCall = collectModels();
-    const secondCall = collectModels();
+    const firstCall = await collectModels();
+    const secondCall = await collectModels();
 
     expect(firstCall).toBe(secondCall); // Same reference
     expect(getModelCache()).not.toBeNull();
   });
 
-  it("should refresh cache after TTL expires", () => {
+  it("should refresh cache after TTL expires", async () => {
     vi.useFakeTimers();
 
     try {
@@ -212,9 +212,9 @@ describe("collectModels", () => {
         },
       };
 
-      fs.writeFileSync(testConfigPath, JSON.stringify(config));
+      fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-      const firstCall = collectModels();
+      const firstCall = await collectModels();
 
       // Advance past the 60s TTL
       vi.advanceTimersByTime(60_001);
@@ -229,9 +229,9 @@ describe("collectModels", () => {
           },
         },
       };
-      fs.writeFileSync(testConfigPath, JSON.stringify(newConfig));
+      fsSync.writeFileSync(testConfigPath, JSON.stringify(newConfig));
 
-      const secondCall = collectModels();
+      const secondCall = await collectModels();
 
       expect(secondCall).not.toBe(firstCall);
       expect(secondCall[0]!.id).toBe("test/model-v2");
@@ -240,7 +240,40 @@ describe("collectModels", () => {
     }
   });
 
-  it("should handle models without names", () => {
+  it("should use shorter TTL for fallback models", async () => {
+    vi.useFakeTimers();
+
+    try {
+      // No config file — will use fallback
+      const firstCall = await collectModels();
+      expect(firstCall).toHaveLength(6);
+      expect(getModelCache()!.isFallback).toBe(true);
+
+      // Advance 11 seconds (past 10s fallback TTL but under 60s live TTL)
+      vi.advanceTimersByTime(11_000);
+
+      // Now write a real config
+      const config = {
+        models: {
+          providers: {
+            openrouter: {
+              models: [{ id: "test/model", name: "Test Model" }],
+            },
+          },
+        },
+      };
+      fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
+
+      const secondCall = await collectModels();
+      expect(secondCall).toHaveLength(1);
+      expect(secondCall[0]!.id).toBe("test/model");
+      expect(getModelCache()!.isFallback).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should handle models without names", async () => {
     const config = {
       models: {
         providers: {
@@ -251,9 +284,9 @@ describe("collectModels", () => {
       },
     };
 
-    fs.writeFileSync(testConfigPath, JSON.stringify(config));
+    fsSync.writeFileSync(testConfigPath, JSON.stringify(config));
 
-    const models = collectModels();
+    const models = await collectModels();
 
     expect(models[0]!.name).toBe("provider/model-id");
   });

@@ -1,4 +1,4 @@
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ModelInfo } from "../../shared/types.js";
 import { config } from "../config.js";
@@ -7,10 +7,12 @@ import { config } from "../config.js";
 interface CachedModels {
   models: ModelInfo[];
   timestamp: number;
+  isFallback: boolean;
 }
 
 let modelCache: CachedModels | null = null;
 const CACHE_TTL_MS = 60_000; // 1 minute
+const FALLBACK_CACHE_TTL_MS = 10_000; // 10 seconds — retry sooner when using fallback
 
 // Fallback static list when gateway config is unavailable
 const FALLBACK_MODELS: ModelInfo[] = [
@@ -56,9 +58,8 @@ interface OpenClawConfig {
   };
 }
 
-function parseConfigModels(configPath: string): ModelInfo[] | null {
+function parseConfigModels(content: string): ModelInfo[] | null {
   try {
-    const content = fs.readFileSync(configPath, "utf-8");
     const parsed: OpenClawConfig = JSON.parse(content);
 
     const models: ModelInfo[] = [];
@@ -87,25 +88,32 @@ function parseConfigModels(configPath: string): ModelInfo[] | null {
   }
 }
 
-export function collectModels(): ModelInfo[] {
+export async function collectModels(): Promise<ModelInfo[]> {
   const now = Date.now();
 
-  // Return cached models if valid
-  if (modelCache && now - modelCache.timestamp < CACHE_TTL_MS) {
-    return modelCache.models;
+  // Return cached models if valid (shorter TTL for fallback data)
+  if (modelCache) {
+    const ttl = modelCache.isFallback ? FALLBACK_CACHE_TTL_MS : CACHE_TTL_MS;
+    if (now - modelCache.timestamp < ttl) {
+      return modelCache.models;
+    }
   }
 
   // Try to read from OpenClaw config
   const configPath = path.join(config.openclawHome, "openclaw.json");
-  const liveModels = parseConfigModels(configPath);
+  let liveModels: ModelInfo[] | null = null;
+  try {
+    const content = await fs.readFile(configPath, "utf-8");
+    liveModels = parseConfigModels(content);
+  } catch {
+    // Config file not found or unreadable — fall through to fallback
+  }
 
+  const isFallback = liveModels === null;
   const models = liveModels ?? FALLBACK_MODELS;
 
   // Update cache
-  modelCache = {
-    models,
-    timestamp: now,
-  };
+  modelCache = { models, timestamp: now, isFallback };
 
   return models;
 }

@@ -14,6 +14,14 @@ export async function collectHealth(
   gatewayPort: number = config.gatewayPort,
 ): Promise<HealthStatus> {
   return new Promise((resolve) => {
+    let settled = false;
+    const settle = (result: HealthStatus) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 1000);
 
@@ -26,20 +34,14 @@ export async function collectHealth(
         signal: controller.signal,
       },
       (res) => {
-        clearTimeout(timer);
         res.resume();
-        res.on("error", () => {
-          resolve(healthResult(false));
-        });
-        res.on("end", () => {
-          resolve(healthResult(res.statusCode === 200));
-        });
+        // Resolve immediately on response — no need to wait for body on HEAD
+        settle(healthResult(res.statusCode === 200));
       },
     );
 
     req.on("error", () => {
-      clearTimeout(timer);
-      resolve(healthResult(false));
+      settle(healthResult(false));
     });
 
     req.end();
