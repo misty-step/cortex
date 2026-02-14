@@ -8,7 +8,7 @@ import { config } from "../config.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { queryLogs } from "../services/log-store.js";
-import type { LogLevel, SpriteStatus } from "../../shared/types.js";
+import type { LogLevel, LogSource, SpriteStatus } from "../../shared/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -94,8 +94,8 @@ api.get("/crons", async (c) => {
 });
 
 // Models
-api.get("/models", (c) => {
-  const models = collectModels();
+api.get("/models", async (c) => {
+  const models = await collectModels();
   return c.json(models);
 });
 
@@ -109,7 +109,10 @@ api.get("/agents", async (c) => {
 api.get("/errors", (c) => {
   const limit = clampInt(c.req.query("limit"), 50, 10_000);
   const page = clampInt(c.req.query("page"), 1, 100_000);
-  const result = queryLogs({ level: "error", limit, page });
+  const VALID_SOURCES: Set<string> = new Set(["json-log", "gateway-log", "gateway-err"]);
+  const rawSource = c.req.query("source");
+  const source = rawSource && VALID_SOURCES.has(rawSource) ? (rawSource as LogSource) : undefined;
+  const result = queryLogs({ level: "error", source, limit, page });
   return c.json(result);
 });
 

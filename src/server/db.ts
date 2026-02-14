@@ -1,7 +1,10 @@
 // ─── SQLite Database ────────────────────────────────────────────────────────
 // Connection management and migration runner for better-sqlite3
 
+import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
 
 let db: BetterSqlite3.Database | null = null;
 
@@ -13,8 +16,6 @@ export function getDb(): BetterSqlite3.Database {
 }
 
 export function initDb(dbPath: string): BetterSqlite3.Database {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3") as typeof BetterSqlite3;
   const instance = new Database(dbPath);
   instance.pragma("journal_mode = WAL");
   instance.pragma("foreign_keys = ON");
@@ -30,11 +31,6 @@ export function closeDb(): void {
 }
 
 export function runMigrations(database: BetterSqlite3.Database, migrationsDir: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require("node:fs") as typeof import("node:fs");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require("node:path") as typeof import("node:path");
-
   database.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

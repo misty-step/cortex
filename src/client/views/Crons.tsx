@@ -54,6 +54,15 @@ export function Crons() {
               </div>
             ),
           },
+          {
+            key: "next_run",
+            header: "Next Run",
+            render: (v) => (
+              <div className="text-sm">
+                {v ? relativeTime(new Date(v as string).getTime()) : "\u2014"}
+              </div>
+            ),
+          },
         ]}
         data={crons}
       />
