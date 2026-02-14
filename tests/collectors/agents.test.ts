@@ -119,6 +119,36 @@ describe("collectAgents", () => {
     expect(agents[0]!.sessionCount).toBe(0);
   });
 
+  it("returns agent with defaults when config.json is missing", async () => {
+    const agentId = "no-config-agent";
+    const agentDir = path.join(agentsDir, agentId);
+
+    // Only create sessions dir — no config.json
+    const sessionsDir = path.join(agentDir, "sessions");
+    await fs.mkdir(sessionsDir, { recursive: true });
+    await fs.writeFile(
+      path.join(sessionsDir, "sessions.json"),
+      JSON.stringify({
+        "session-1": {
+          systemSent: true,
+          createdAt: Date.now() - 60000,
+          updatedAt: Date.now(),
+          model: "claude-sonnet-4-5",
+        },
+      }),
+    );
+
+    const agents = await collectAgents(tempDir);
+    expect(agents).toHaveLength(1);
+
+    const agent = agents[0]!;
+    expect(agent.id).toBe(agentId);
+    expect(agent.name).toBe(agentId);
+    expect(agent.enabled).toBe(true);
+    expect(agent.online).toBe(true);
+    expect(agent.sessionCount).toBe(1);
+  });
+
   it("reads multiple agents", async () => {
     const agentIds = ["agent-1", "agent-2", "agent-3"];
 

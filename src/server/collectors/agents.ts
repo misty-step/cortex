@@ -56,48 +56,52 @@ async function readSessionsSummary(sessionsPath: string): Promise<SessionSummary
 
 async function collectAgent(agentsDir: string, agentId: string): Promise<AgentStatus | null> {
   const agentDir = path.join(agentsDir, agentId);
-  const configPath = path.join(agentDir, "config.json");
 
+  // config.json is optional — many agents only have sessions/ and agent/ dirs
+  let configName: string | null = null;
+  let configEnabled = true;
   try {
-    const configRaw = await fs.readFile(configPath, "utf-8");
+    const configRaw = await fs.readFile(path.join(agentDir, "config.json"), "utf-8");
     const config: unknown = JSON.parse(configRaw);
-    if (!isRecord(config)) return null;
-
-    const sessionsFile = path.join(agentDir, "sessions", "sessions.json");
-    let sessionCount = 0;
-    let lastHeartbeat: string | null = null;
-    let currentModel: string | null = null;
-    let latestTimestamp = 0;
-
-    try {
-      const summary = await readSessionsSummary(sessionsFile);
-      sessionCount = summary.count;
-      latestTimestamp = summary.latestTimestamp;
-      currentModel = summary.currentModel;
-      lastHeartbeat = latestTimestamp ? new Date(latestTimestamp).toISOString() : null;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.error(`[collector/agents] Failed to read sessions for ${agentId}:`, err);
-      }
+    if (isRecord(config)) {
+      configName = typeof config.name === "string" ? config.name : null;
+      configEnabled = config.enabled !== false;
     }
-
-    const online = latestTimestamp > 0 && Date.now() - latestTimestamp < ONLINE_THRESHOLD_MS;
-
-    return {
-      id: agentId,
-      name: (typeof config.name === "string" && config.name) || agentId,
-      online,
-      sessionCount,
-      lastHeartbeat,
-      currentModel,
-      enabled: config.enabled !== false,
-    };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
       console.error(`[collector/agents] Failed to read config for ${agentId}:`, err);
     }
-    return null;
   }
+
+  const sessionsFile = path.join(agentDir, "sessions", "sessions.json");
+  let sessionCount = 0;
+  let lastHeartbeat: string | null = null;
+  let currentModel: string | null = null;
+  let latestTimestamp = 0;
+
+  try {
+    const summary = await readSessionsSummary(sessionsFile);
+    sessionCount = summary.count;
+    latestTimestamp = summary.latestTimestamp;
+    currentModel = summary.currentModel;
+    lastHeartbeat = latestTimestamp ? new Date(latestTimestamp).toISOString() : null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error(`[collector/agents] Failed to read sessions for ${agentId}:`, err);
+    }
+  }
+
+  const online = latestTimestamp > 0 && Date.now() - latestTimestamp < ONLINE_THRESHOLD_MS;
+
+  return {
+    id: agentId,
+    name: configName || agentId,
+    online,
+    sessionCount,
+    lastHeartbeat,
+    currentModel,
+    enabled: configEnabled,
+  };
 }
 
 export async function collectAgents(openclawHome: string): Promise<AgentStatus[]> {
