@@ -5,8 +5,8 @@ Real-time observability dashboard for [OpenClaw](https://github.com/misty-step/o
 ## Setup
 
 ```bash
-pnpm install
-pnpm dev:all
+bun install
+bun run dev:all
 ```
 
 - Frontend: http://localhost:5173
@@ -14,7 +14,7 @@ pnpm dev:all
 
 ## Tech Stack
 
-- **Server**: Hono + Node.js + SQLite (better-sqlite3 + FTS5)
+- **Server**: Hono + Bun + SQLite (bun:sqlite + FTS5)
 - **Client**: React 19 + Vite + Tailwind CSS v4
 - **Testing**: Vitest + Playwright
 - **CI/CD**: GitHub Actions + Cerberus AI review
@@ -22,8 +22,8 @@ pnpm dev:all
 ## Development
 
 ```bash
-pnpm validate    # Run all quality checks
-pnpm test:watch  # TDD workflow
+bun run validate    # Run all quality checks
+bun run test:watch  # TDD workflow
 ```
 
 See [CLAUDE.md](./CLAUDE.md) for full development guide.

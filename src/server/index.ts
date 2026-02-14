@@ -3,8 +3,7 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { serve } from "@hono/node-server";
+import { serveStatic } from "hono/bun";
 import { config } from "./config.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -81,17 +80,11 @@ app.route("/api", sse);
 // Ping endpoint
 app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
 
-console.log(`Cortex v2 starting on http://localhost:${config.port}`);
-
-serve(
-  {
-    fetch: app.fetch,
-    port: config.port,
-  },
-  (info) => {
-    console.log(`Cortex v2 ready at http://localhost:${info.port}`);
-  },
-);
+Bun.serve({
+  fetch: app.fetch,
+  port: config.port,
+});
+console.log(`Cortex v2 ready at http://localhost:${config.port}`);
 
 // ─── Graceful Shutdown ──────────────────────────────────────────────────────
 function shutdown() {

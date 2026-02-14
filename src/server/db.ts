@@ -1,24 +1,23 @@
 // ─── SQLite Database ────────────────────────────────────────────────────────
-// Connection management and migration runner for better-sqlite3
+// Connection management and migration runner for bun:sqlite
 
-import Database from "better-sqlite3";
-import type BetterSqlite3 from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-let db: BetterSqlite3.Database | null = null;
+let db: Database | null = null;
 
-export function getDb(): BetterSqlite3.Database {
+export function getDb(): Database {
   if (!db) {
     throw new Error("Database not initialized. Call initDb() first.");
   }
   return db;
 }
 
-export function initDb(dbPath: string): BetterSqlite3.Database {
+export function initDb(dbPath: string): Database {
   const instance = new Database(dbPath);
-  instance.pragma("journal_mode = WAL");
-  instance.pragma("foreign_keys = ON");
+  instance.exec("PRAGMA journal_mode = WAL");
+  instance.exec("PRAGMA foreign_keys = ON");
   db = instance;
   return instance;
 }
@@ -30,7 +29,7 @@ export function closeDb(): void {
   }
 }
 
-export function runMigrations(database: BetterSqlite3.Database, migrationsDir: string): void {
+export function runMigrations(database: Database, migrationsDir: string): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
