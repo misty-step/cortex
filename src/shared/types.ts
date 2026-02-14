@@ -71,6 +71,16 @@ export interface SpriteStatus {
   last_seen: string | null;
 }
 
+export interface AgentStatus {
+  id: string;
+  name: string;
+  online: boolean;
+  sessionCount: number;
+  lastHeartbeat: string | null;
+  currentModel: string | null;
+  enabled: boolean;
+}
+
 // ─── API Query Types ────────────────────────────────────────────────────────
 
 export interface LogQuery {

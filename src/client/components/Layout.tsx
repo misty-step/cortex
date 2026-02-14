@@ -4,6 +4,7 @@ import { SearchBar } from "./SearchBar";
 
 const navItems = [
   { path: "/", label: "Overview" },
+  { path: "/agents", label: "Agents" },
   { path: "/sessions", label: "Sessions" },
   { path: "/logs", label: "Logs" },
   { path: "/crons", label: "Cron Jobs" },

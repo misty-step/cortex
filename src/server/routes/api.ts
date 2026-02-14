@@ -3,6 +3,7 @@ import { collectHealth } from "../collectors/health.js";
 import { collectSessions } from "../collectors/sessions.js";
 import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
+import { collectAgents } from "../collectors/agents.js";
 import { config } from "../config.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -96,6 +97,12 @@ api.get("/crons", async (c) => {
 api.get("/models", async (c) => {
   const models = await collectModels();
   return c.json(models);
+});
+
+// Agents status dashboard
+api.get("/agents", async (c) => {
+  const agents = await collectAgents(config.openclawHome);
+  return c.json(agents);
 });
 
 // Errors (from SQLite, filtered to error level)
