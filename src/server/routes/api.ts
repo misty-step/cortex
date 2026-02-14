@@ -102,10 +102,11 @@ api.get("/models", async (c) => {
 api.get("/errors", (c) => {
   const limit = clampInt(c.req.query("limit"), 50, 10_000);
   const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
   const VALID_SOURCES: Set<string> = new Set(["json-log", "gateway-log", "gateway-err"]);
   const rawSource = c.req.query("source");
   const source = rawSource && VALID_SOURCES.has(rawSource) ? (rawSource as LogSource) : undefined;
-  const result = queryLogs({ level: "error", source, limit, page });
+  const result = queryLogs({ level: "error", page, limit, q, source });
   return c.json(result);
 });
 

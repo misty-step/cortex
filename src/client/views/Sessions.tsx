@@ -1,12 +1,27 @@
+import { useState, useMemo } from "react";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
+import { SearchBar } from "../components/SearchBar";
 import { relativeTime } from "../lib/formatters";
 
 export function Sessions() {
-  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/sessions");
-  const sessions = data ?? [];
+  const [searchQuery, setSearchQuery] = useState("");
+  const params = new URLSearchParams();
+  if (searchQuery.trim()) params.set("q", searchQuery.trim());
+  const qs = params.toString();
+  const url = qs ? `/api/sessions?${qs}` : "/api/sessions";
+  const {
+    data: raw,
+    loading,
+    error,
+  } = useApi<Record<string, unknown>[] | { data: Record<string, unknown>[] }>(url);
+
+  const filteredSessions = useMemo(() => {
+    if (!raw || error) return [];
+    return Array.isArray(raw) ? raw : (raw.data ?? []);
+  }, [raw, error]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load sessions</div>;
@@ -15,33 +30,52 @@ export function Sessions() {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Agent Sessions</h2>
-        {sessions.length > 0 && <ExportButton data={sessions} filename="sessions" />}
+        <div className="flex items-center gap-2">
+          {filteredSessions.length > 0 && (
+            <ExportButton data={filteredSessions} filename="sessions" />
+          )}
+          <SearchBar
+            onDebouncedSearch={setSearchQuery}
+            placeholder="Search sessions..."
+            className="w-auto"
+          />
+        </div>
       </div>
       <DataTable
         columns={[
-          { key: "agent_id", header: "Agent" },
+          { key: "agent_id", header: "Agent", sortable: true },
           {
             key: "session_key",
             header: "Session",
+            sortable: false,
             render: (v: string) => (
               <span className="font-mono text-xs" title={v}>
                 {v.split(":").slice(-2).join(":")}
               </span>
             ),
           },
-          { key: "status", header: "Status", render: (v: string) => <StatusBadge status={v} /> },
+          {
+            key: "status",
+            header: "Status",
+            sortable: true,
+            render: (v: string) => <StatusBadge status={v} />,
+          },
           {
             key: "model",
             header: "Model",
-            render: (v: string) => (v ? v.split("/").pop() : "\u2014"),
+            sortable: true,
+            render: (v: string) => (v ? v.split("/").pop() : "—"),
           },
           {
             key: "last_activity",
             header: "Last Activity",
-            render: (v: string | null) => (v ? relativeTime(new Date(v).getTime()) : "\u2014"),
+            sortable: true,
+            getSortValue: (v: string | null) => (v ? new Date(v).getTime() : 0),
+            render: (v: string | null) => (v ? relativeTime(new Date(v).getTime()) : "—"),
           },
         ]}
-        data={sessions}
+        data={filteredSessions}
+        rowKey="session_key"
       />
     </div>
   );
