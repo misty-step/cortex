@@ -93,8 +93,8 @@ api.get("/crons", async (c) => {
 });
 
 // Models
-api.get("/models", (c) => {
-  const models = collectModels();
+api.get("/models", async (c) => {
+  const models = await collectModels();
   return c.json(models);
 });
 
