@@ -16,6 +16,8 @@ interface DataTableProps {
   data: any[];
   sortable?: boolean;
   emptyMessage?: string;
+  /** Field name to use as unique row key (falls back to index) */
+  rowKey?: string;
 }
 
 export function DataTable({
@@ -23,16 +25,17 @@ export function DataTable({
   data,
   sortable = true,
   emptyMessage = "No data available",
+  rowKey,
 }: DataTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(false);
 
-  // Sort data
+  // Sort data — pre-compute active column outside comparator
   const sortedData = useMemo(() => {
     if (!sortable || !sortKey) return data;
 
+    const column = columns.find((c) => c.key === sortKey);
     return [...data].sort((a, b) => {
-      const column = columns.find((c) => c.key === sortKey);
       const aVal = column?.getSortValue ? column.getSortValue(a[sortKey], a) : (a[sortKey] ?? "");
       const bVal = column?.getSortValue ? column.getSortValue(b[sortKey], b) : (b[sortKey] ?? "");
 
@@ -88,7 +91,10 @@ export function DataTable({
         </thead>
         <tbody>
           {sortedData.map((row, idx) => (
-            <tr key={idx} className="border-b border-[var(--bg2)] hover:bg-[var(--bg2)]">
+            <tr
+              key={rowKey ? row[rowKey] : idx}
+              className="border-b border-[var(--bg2)] hover:bg-[var(--bg2)]"
+            >
               {columns.map((col) => (
                 <td key={col.key} className="p-3 text-[var(--fg)]">
                   {col.render ? col.render(row[col.key], row) : (row[col.key] ?? "—")}

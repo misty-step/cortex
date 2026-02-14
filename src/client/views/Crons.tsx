@@ -81,6 +81,8 @@ export function Crons() {
             key: "last_status",
             header: "Last Run",
             sortable: true,
+            getSortValue: (_v, row) =>
+              row.last_run ? new Date(row.last_run as string).getTime() : 0,
             render: (v, row) => (
               <div>
                 <StatusBadge status={v === "ok" ? "ok" : v === "error" ? "error" : "warn"} />

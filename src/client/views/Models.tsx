@@ -12,8 +12,8 @@ export function Models() {
   const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/models");
   const models = useMemo(() => data ?? [], [data]);
 
-  // Get unique providers for filter dropdown
-  const providers = [...new Set(models.map((m) => m.provider as string))].sort();
+  // Get unique providers for filter dropdown (filter out undefined/null)
+  const providers = [...new Set(models.map((m) => m.provider as string).filter(Boolean))].sort();
 
   // Apply provider filter, then text search
   const filteredModels = useMemo(() => {

@@ -3,19 +3,22 @@ import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
-import { filterByText } from "../lib/formatters";
 import type { LogEntry } from "../../shared/types";
 
 export function Logs() {
   const [level, setLevel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const url = level ? `/api/logs?level=${level}` : "/api/logs";
+  const params = new URLSearchParams();
+  if (level) params.set("level", level);
+  if (searchQuery.trim()) params.set("q", searchQuery.trim());
+  const qs = params.toString();
+  const url = qs ? `/api/logs?${qs}` : "/api/logs";
   const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>(url);
 
-  const filteredLogs = useMemo(() => {
-    const logs: LogEntry[] = raw && !error ? (Array.isArray(raw) ? raw : (raw.data ?? [])) : [];
-    return filterByText(logs, searchQuery, ["timestamp", "level", "message", "source"]);
-  }, [raw, error, searchQuery]);
+  const logs = useMemo<LogEntry[]>(() => {
+    if (!raw || error) return [];
+    return Array.isArray(raw) ? raw : (raw.data ?? []);
+  }, [raw, error]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load logs</div>;
@@ -25,7 +28,7 @@ export function Logs() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Gateway Logs</h2>
         <div className="flex items-center gap-2">
-          {filteredLogs.length > 0 && <ExportButton data={filteredLogs} filename="logs" />}
+          {logs.length > 0 && <ExportButton data={logs} filename="logs" />}
           <SearchBar
             onDebouncedSearch={setSearchQuery}
             placeholder="Search logs..."
@@ -50,7 +53,7 @@ export function Logs() {
           { key: "level", header: "Level", sortable: true },
           { key: "message", header: "Message", sortable: false },
         ]}
-        data={filteredLogs}
+        data={logs}
       />
     </div>
   );
