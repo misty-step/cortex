@@ -86,13 +86,41 @@ describe("API routes", () => {
 
   // ── GET /sessions ─────────────────────────────────────────────────────
 
-  it("should return sessions from /sessions", async () => {
+  it("should return paginated sessions from /sessions", async () => {
     const res = await api.request("/sessions");
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as Array<Record<string, unknown>>;
-    expect(body).toHaveLength(1);
-    expect(body[0]!.agent_id).toBe("agent-1");
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+      total: number;
+      page: number;
+      limit: number;
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.total).toBe(1);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(100);
+    expect(body.data[0]!.agent_id).toBe("agent-1");
+  });
+
+  it("should respect limit and page on /sessions", async () => {
+    const res = await api.request("/sessions?limit=1&page=1");
+    const body = (await res.json()) as {
+      data: unknown[];
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("should filter sessions by search query", async () => {
+    const res = await api.request("/sessions?q=agent-1");
+    const body = (await res.json()) as {
+      data: Array<{ agent_id: string }>;
+      total: number;
+    };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.agent_id).toBe("agent-1");
   });
 
   // ── GET /models ───────────────────────────────────────────────────────
@@ -108,13 +136,41 @@ describe("API routes", () => {
 
   // ── GET /crons ────────────────────────────────────────────────────────
 
-  it("should return crons from /crons", async () => {
+  it("should return paginated crons from /crons", async () => {
     const res = await api.request("/crons");
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as Array<Record<string, unknown>>;
-    expect(body).toHaveLength(1);
-    expect(body[0]!.name).toBe("daily-check");
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+      total: number;
+      page: number;
+      limit: number;
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.total).toBe(1);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(100);
+    expect(body.data[0]!.name).toBe("daily-check");
+  });
+
+  it("should respect limit and page on /crons", async () => {
+    const res = await api.request("/crons?limit=1&page=1");
+    const body = (await res.json()) as {
+      data: unknown[];
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("should filter crons by search query", async () => {
+    const res = await api.request("/crons?q=daily-check");
+    const body = (await res.json()) as {
+      data: Array<{ name: string }>;
+      total: number;
+    };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.name).toBe("daily-check");
   });
 
   // ── GET /logs ─────────────────────────────────────────────────────────
@@ -299,6 +355,66 @@ describe("API routes", () => {
     const res = await api.request("/errors?limit=2");
     const body = (await res.json()) as { data: unknown[] };
     expect(body.data).toHaveLength(2);
+  });
+
+  it("should respect page parameter on /errors", async () => {
+    // Clear existing entries and add fresh ones
+    for (let i = 0; i < 5; i++) {
+      insertLogEntry({
+        timestamp: `2026-02-12T10:0${i}:00.000Z`,
+        level: "error",
+        source: "gateway-err",
+        message: `error ${i}`,
+        raw: null,
+        metadata: null,
+      });
+    }
+
+    const res = await api.request("/errors?limit=2&page=2");
+    const body = (await res.json()) as { data: unknown[]; page: number };
+    expect(body.page).toBe(2);
+    expect(body.data).toHaveLength(2);
+  });
+
+  it("should filter errors by source", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "error",
+      source: "json-log",
+      message: "agent error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=gateway-err");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
+  it("should ignore invalid source values on /errors", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=invalid-source");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    // Invalid source should be ignored, returning all errors
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
   });
 
   // ── GET /sprites ──────────────────────────────────────────────────────

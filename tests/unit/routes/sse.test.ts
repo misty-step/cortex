@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { sse } from "../../../src/server/routes/sse";
+import { broadcast } from "../../../src/server/services/event-bus";
+import type { LogEntry } from "../../../src/shared/types";
 
 describe("SSE routes", () => {
   const controllers: AbortController[] = [];
@@ -51,5 +53,77 @@ describe("SSE routes", () => {
   it("should return 404 for unknown SSE paths", async () => {
     const res = await sseRequest("/unknown");
     expect(res.status).toBe(404);
+  });
+
+  it("should forward event-bus events to connected clients", async () => {
+    const res = await sseRequest("/events");
+    const reader = res.body!.getReader();
+
+    // Read initial connected event
+    await reader.read();
+
+    // Broadcast a log entry event
+    const logEntry: Omit<LogEntry, "id" | "createdAt"> = {
+      timestamp: "2024-01-15T10:30:00Z",
+      level: "info",
+      source: "gateway-log",
+      message: "Test log message",
+      raw: null,
+      metadata: null,
+    };
+
+    broadcast({
+      type: "log_entry",
+      data: logEntry,
+      timestamp: 1705312200000,
+    });
+
+    // Read the broadcasted event
+    const { value } = await reader.read();
+    reader.cancel();
+
+    const text = new TextDecoder().decode(value);
+    expect(text).toContain('"type":"log_entry"');
+    expect(text).toContain("Test log message");
+    expect(text).toContain('"timestamp":1705312200000');
+  });
+
+  it("should forward multiple event types to connected clients", async () => {
+    const res = await sseRequest("/events");
+    const reader = res.body!.getReader();
+
+    // Read initial connected event
+    await reader.read();
+
+    // Broadcast multiple events
+    broadcast({ type: "health", data: { status: "ok" } });
+    broadcast({ type: "sessions", data: [] });
+
+    // Collect events
+    const events: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const { value } = await reader.read();
+      events.push(new TextDecoder().decode(value));
+    }
+    reader.cancel();
+
+    expect(events.some((e) => e.includes('"type":"health"'))).toBe(true);
+    expect(events.some((e) => e.includes('"type":"sessions"'))).toBe(true);
+  });
+
+  it("should unsubscribe from event-bus on client disconnect", async () => {
+    const res = await sseRequest("/events");
+    const reader = res.body!.getReader();
+
+    // Read initial connected event
+    await reader.read();
+
+    // Disconnect
+    await reader.cancel();
+
+    // Broadcast should not throw after disconnect
+    expect(() => {
+      broadcast({ type: "log_entry", data: { message: "after disconnect" } });
+    }).not.toThrow();
   });
 });

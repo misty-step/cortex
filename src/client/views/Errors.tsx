@@ -7,8 +7,10 @@ import type { LogEntry } from "../../shared/types";
 
 export function Errors() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [source, setSource] = useState("");
   const params = new URLSearchParams();
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
+  if (source) params.set("source", source);
   const qs = params.toString();
   const url = qs ? `/api/errors?${qs}` : "/api/errors";
   const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>(url);
@@ -27,6 +29,15 @@ export function Errors() {
         <h2 className="text-2xl font-bold">Recent Errors</h2>
         <div className="flex items-center gap-2">
           {errors.length > 0 && <ExportButton data={errors} filename="errors" />}
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            className="bg-[var(--bg2)] border rounded px-2 py-1"
+          >
+            <option value="">All Sources</option>
+            <option value="gateway-err">Gateway</option>
+            <option value="json-log">Agents</option>
+          </select>
           <SearchBar
             onDebouncedSearch={setSearchQuery}
             placeholder="Search errors..."
@@ -37,6 +48,7 @@ export function Errors() {
       <DataTable
         columns={[
           { key: "timestamp", header: "Time", sortable: true },
+          { key: "source", header: "Source", sortable: true },
           { key: "level", header: "Level", sortable: true },
           { key: "message", header: "Message", sortable: false },
         ]}
