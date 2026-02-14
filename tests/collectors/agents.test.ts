@@ -2,13 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
-import { collectAgents } from "../../src/server/collectors/agents";
+import { collectAgents, clearSessionCache } from "../../src/server/collectors/agents";
 
 describe("collectAgents", () => {
   let tempDir: string;
   let agentsDir: string;
 
   beforeEach(async () => {
+    clearSessionCache();
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-test-"));
     agentsDir = path.join(tempDir, "agents");
     await fs.mkdir(agentsDir, { recursive: true });
@@ -36,7 +37,7 @@ describe("collectAgents", () => {
         name: "Test Agent",
         enabled: true,
         heartbeatInterval: 30000,
-      })
+      }),
     );
 
     // Create active session
@@ -51,7 +52,7 @@ describe("collectAgents", () => {
           updatedAt: Date.now(),
           model: "claude-opus-4",
         },
-      })
+      }),
     );
 
     const agents = await collectAgents(tempDir);
@@ -77,7 +78,7 @@ describe("collectAgents", () => {
         name: "Offline Agent",
         enabled: true,
         heartbeatInterval: 30000,
-      })
+      }),
     );
 
     // Create stale session (older than 2 minutes)
@@ -92,7 +93,7 @@ describe("collectAgents", () => {
           updatedAt: Date.now() - 300000,
           model: "claude-opus-4",
         },
-      })
+      }),
     );
 
     const agents = await collectAgents(tempDir);
@@ -110,7 +111,7 @@ describe("collectAgents", () => {
         id: agentId,
         name: "No Sessions Agent",
         enabled: true,
-      })
+      }),
     );
 
     const agents = await collectAgents(tempDir);
@@ -130,7 +131,7 @@ describe("collectAgents", () => {
           id: agentId,
           name: `Agent ${agentId}`,
           enabled: true,
-        })
+        }),
       );
     }
 

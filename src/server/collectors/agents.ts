@@ -5,40 +5,53 @@ import type { AgentStatus } from "../../shared/types.js";
 // 2 minutes — agents report heartbeat every ~60s, so 2x gives buffer for missed beats
 const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
 
-interface SessionCache {
+interface SessionSummary {
   mtime: number;
-  sessions: Record<string, unknown>[];
   count: number;
+  latestTimestamp: number;
+  currentModel: string | null;
 }
 
-const sessionCache = new Map<string, SessionCache>();
+const sessionCache = new Map<string, SessionSummary>();
+
+/** Exported for test isolation — clears the module-level session cache. */
+export function clearSessionCache(): void {
+  sessionCache.clear();
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function readSessionsCached(
-  sessionsPath: string,
-  agentId: string,
-): Promise<{ sessions: Record<string, unknown>[]; count: number }> {
+async function readSessionsSummary(sessionsPath: string): Promise<SessionSummary> {
   const stat = await fs.stat(sessionsPath);
-  const cached = sessionCache.get(agentId);
+  const cached = sessionCache.get(sessionsPath);
   if (cached && cached.mtime === stat.mtimeMs) {
-    return { sessions: cached.sessions, count: cached.count };
+    return cached;
   }
 
   const raw = await fs.readFile(sessionsPath, "utf-8");
   const data: unknown = JSON.parse(raw);
   if (!isRecord(data)) throw new Error("invalid sessions format");
 
-  const sessions: Record<string, unknown>[] = [];
+  // Aggregate in a single pass — don't store raw sessions
+  let count = 0;
+  let latestTimestamp = 0;
+  let currentModel: string | null = null;
   for (const value of Object.values(data)) {
-    if (isRecord(value)) sessions.push(value);
+    if (!isRecord(value)) continue;
+    count++;
+    const ts = typeof value.updatedAt === "number" ? value.updatedAt : 0;
+    if (ts > latestTimestamp) {
+      latestTimestamp = ts;
+      // Reflect latest session's model (null if absent)
+      currentModel = typeof value.model === "string" ? value.model : null;
+    }
   }
 
-  const entry: SessionCache = { mtime: stat.mtimeMs, sessions, count: sessions.length };
-  sessionCache.set(agentId, entry);
-  return { sessions: entry.sessions, count: entry.count };
+  const summary: SessionSummary = { mtime: stat.mtimeMs, count, latestTimestamp, currentModel };
+  sessionCache.set(sessionsPath, summary);
+  return summary;
 }
 
 async function collectAgent(agentsDir: string, agentId: string): Promise<AgentStatus | null> {
@@ -57,19 +70,10 @@ async function collectAgent(agentsDir: string, agentId: string): Promise<AgentSt
     let latestTimestamp = 0;
 
     try {
-      const { sessions, count } = await readSessionsCached(sessionsFile, agentId);
-      sessionCount = count;
-
-      for (const session of sessions) {
-        const ts = typeof session.updatedAt === "number" ? session.updatedAt : 0;
-        if (ts > latestTimestamp) {
-          latestTimestamp = ts;
-          if (typeof session.model === "string") {
-            currentModel = session.model;
-          }
-        }
-      }
-
+      const summary = await readSessionsSummary(sessionsFile);
+      sessionCount = summary.count;
+      latestTimestamp = summary.latestTimestamp;
+      currentModel = summary.currentModel;
       lastHeartbeat = latestTimestamp ? new Date(latestTimestamp).toISOString() : null;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
