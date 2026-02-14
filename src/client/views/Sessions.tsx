@@ -4,21 +4,24 @@ import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
-import { relativeTime, filterByText } from "../lib/formatters";
+import { relativeTime } from "../lib/formatters";
 
 export function Sessions() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/sessions");
+  const params = new URLSearchParams();
+  if (searchQuery.trim()) params.set("q", searchQuery.trim());
+  const qs = params.toString();
+  const url = qs ? `/api/sessions?${qs}` : "/api/sessions";
+  const {
+    data: raw,
+    loading,
+    error,
+  } = useApi<Record<string, unknown>[] | { data: Record<string, unknown>[] }>(url);
+
   const filteredSessions = useMemo(() => {
-    const sessions = data ?? [];
-    return filterByText(sessions, searchQuery, [
-      "agent_id",
-      "session_key",
-      "status",
-      "model",
-      "current_task",
-    ]);
-  }, [data, searchQuery]);
+    if (!raw || error) return [];
+    return Array.isArray(raw) ? raw : (raw.data ?? []);
+  }, [raw, error]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load sessions</div>;
@@ -72,6 +75,7 @@ export function Sessions() {
           },
         ]}
         data={filteredSessions}
+        rowKey="session_key"
       />
     </div>
   );

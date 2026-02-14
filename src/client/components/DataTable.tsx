@@ -51,7 +51,8 @@ export function DataTable({
       if (aStr > bStr) return sortDesc ? -1 : 1;
       return 0;
     });
-  }, [data, sortKey, sortDesc, sortable, columns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is inline in callers; only data/sort state matters
+  }, [data, sortKey, sortDesc, sortable]);
 
   const handleSort = (key: string, columnSortable = true) => {
     if (!sortable || !columnSortable) return;
