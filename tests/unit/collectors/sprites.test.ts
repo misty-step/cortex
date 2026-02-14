@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Hoisted mocks
-const { mockExecFile, mockReadFile } = vi.hoisted(() => ({
+const { mockExecFile, mockReadFile, mockStat } = vi.hoisted(() => ({
   mockExecFile: vi.fn(),
   mockReadFile: vi.fn(),
+  mockStat: vi.fn(),
 }));
 
 // Mock child_process before imports
@@ -11,9 +12,10 @@ vi.mock("node:child_process", () => ({
   execFile: mockExecFile,
 }));
 
-// Mock fs before imports  
+// Mock fs before imports
 vi.mock("node:fs/promises", () => ({
   readFile: mockReadFile,
+  stat: mockStat,
 }));
 
 // Import after mocks
@@ -26,6 +28,8 @@ describe("collectSprites", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-13T10:00:00.000Z"));
+    // Default: stat returns a small file size (readFile tests override as needed)
+    mockStat.mockResolvedValue({ size: 1024 });
   });
 
   afterEach(() => {
@@ -61,6 +65,7 @@ describe("collectSprites", () => {
       }),
     );
 
+    mockStat.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
     mockReadFile.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
 
     const sprites = await collectSprites(mockOpenclawHome);
@@ -81,6 +86,7 @@ describe("collectSprites", () => {
       }),
     );
 
+    mockStat.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
     mockReadFile.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
 
     const sprites = await collectSprites(mockOpenclawHome);
@@ -174,6 +180,7 @@ describe("collectSprites", () => {
       }),
     );
 
+    mockStat.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
     mockReadFile.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
 
     const sprites = await collectSprites(mockOpenclawHome);
@@ -193,6 +200,7 @@ describe("collectSprites", () => {
       }),
     );
 
+    mockStat.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
     mockReadFile.mockRejectedValue({ code: "ENOENT" } as NodeJS.ErrnoException);
 
     const sprites = await collectSprites(mockOpenclawHome);
@@ -218,6 +226,13 @@ describe("collectSprites", () => {
     };
 
     // Should read from cadence agent dir, not cadence-ui
+    mockStat.mockImplementation((filepath: unknown) => {
+      const fp = String(filepath);
+      if (fp.includes("/agents/cadence/")) {
+        return Promise.resolve({ size: 1024 });
+      }
+      return Promise.reject({ code: "ENOENT" } as NodeJS.ErrnoException);
+    });
     mockReadFile.mockImplementation((filepath: unknown) => {
       const fp = String(filepath);
       if (fp.includes("/agents/cadence/")) {

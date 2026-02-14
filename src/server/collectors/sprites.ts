@@ -71,11 +71,11 @@ async function readSpriteSession(
   const sessionsFile = path.join(openclawHome, "agents", agentId, "sessions", "sessions.json");
 
   try {
+    // Check file size before reading to avoid memory spikes on large files
+    const stat = await fs.stat(sessionsFile);
+    if (stat.size > 5 * 1024 * 1024) return null;
+
     const content = await fs.readFile(sessionsFile, "utf-8");
-
-    // Guard against unexpectedly large session files (>5MB)
-    if (content.length > 5 * 1024 * 1024) return null;
-
     const sessions = JSON.parse(content) as Record<string, SessionMeta>;
 
     // Single-pass O(N) to find the most recently active session
@@ -121,10 +121,12 @@ export async function collectSprites(openclawHome: string): Promise<SpriteStatus
   const now = Date.now();
   const [spriteNames, processes] = await Promise.all([getSpriteList(), getSpriteProcesses()]);
 
+  // Pre-compile regexes once for all sprites
+  const namePatterns = new Map(spriteNames.map((n) => [n, new RegExp(`\\b${n}\\b`)]));
+
   const sprites = await Promise.all(
     spriteNames.map(async (name) => {
-      // Use word boundary to avoid false-positive matches (e.g. "moss" in "mossy")
-      const namePattern = new RegExp(`\\b${name}\\b`);
+      const namePattern = namePatterns.get(name)!;
       const agentCount = processes.filter((p) => namePattern.test(p.cmd)).length;
       const session = await readSpriteSession(openclawHome, name);
       const status = determineStatus(agentCount, session, now);
