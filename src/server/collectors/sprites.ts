@@ -72,15 +72,23 @@ async function readSpriteSession(
 
   try {
     const content = await fs.readFile(sessionsFile, "utf-8");
+
+    // Guard against unexpectedly large session files (>5MB)
+    if (content.length > 5 * 1024 * 1024) return null;
+
     const sessions = JSON.parse(content) as Record<string, SessionMeta>;
 
-    // Find the most recently active session
-    const sessionEntries = Object.entries(sessions);
-    if (sessionEntries.length === 0) return null;
-
-    // Sort by updatedAt descending
-    sessionEntries.sort((a, b) => (b[1].updatedAt ?? 0) - (a[1].updatedAt ?? 0));
-    return sessionEntries[0]![1];
+    // Single-pass O(N) to find the most recently active session
+    let latest: SessionMeta | null = null;
+    let latestTime = -1;
+    for (const meta of Object.values(sessions)) {
+      const t = meta.updatedAt ?? meta.createdAt ?? 0;
+      if (t > latestTime) {
+        latestTime = t;
+        latest = meta;
+      }
+    }
+    return latest;
   } catch {
     return null;
   }
@@ -97,7 +105,7 @@ function determineStatus(
   const lastActivity = session.updatedAt ?? session.createdAt ?? 0;
   const isStale = now - lastActivity > STALE_THRESHOLD_MS;
 
-  if (session.systemSent && !isStale) return "complete";
+  if (session.systemSent) return "complete";
   if (isStale) return "stale";
   return "idle";
 }
@@ -105,8 +113,8 @@ function determineStatus(
 function calculateRuntime(session: SessionMeta | null): number | null {
   if (!session?.createdAt) return null;
   const created = session.createdAt;
-  const ended = session.updatedAt ?? Date.now();
-  return Math.floor((ended - created) / 1000);
+  if (!session.updatedAt) return null;
+  return Math.floor((session.updatedAt - created) / 1000);
 }
 
 export async function collectSprites(openclawHome: string): Promise<SpriteStatus[]> {
@@ -115,7 +123,9 @@ export async function collectSprites(openclawHome: string): Promise<SpriteStatus
 
   const sprites = await Promise.all(
     spriteNames.map(async (name) => {
-      const agentCount = processes.filter((p) => p.cmd.includes(name)).length;
+      // Use word boundary to avoid false-positive matches (e.g. "moss" in "mossy")
+      const namePattern = new RegExp(`\\b${name}\\b`);
+      const agentCount = processes.filter((p) => namePattern.test(p.cmd)).length;
       const session = await readSpriteSession(openclawHome, name);
       const status = determineStatus(agentCount, session, now);
 

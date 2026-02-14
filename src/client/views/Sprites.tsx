@@ -21,7 +21,8 @@ export function Sprites() {
         <div>
           <h2 className="text-2xl font-bold">Sprite Fleet</h2>
           <p className="text-sm text-gray-600 mt-1">
-            {runningCount} running, {sprites.length - runningCount} idle
+            {runningCount} running, {sprites.filter((s) => s.status === "complete").length}{" "}
+            complete, {sprites.filter((s) => s.status === "idle").length} idle
             {staleCount > 0 && (
               <span className="text-amber-600 ml-2">({staleCount} need attention)</span>
             )}
@@ -42,7 +43,10 @@ export function Sprites() {
             key: "assigned_task",
             header: "Current Task",
             render: (v: string | null) => (
-              <span className="text-sm text-gray-700 max-w-xs truncate block" title={v ?? undefined}>
+              <span
+                className="text-sm text-gray-700 max-w-xs truncate block"
+                title={v ?? undefined}
+              >
                 {v ?? "—"}
               </span>
             ),
@@ -50,7 +54,7 @@ export function Sprites() {
           {
             key: "runtime_seconds",
             header: "Runtime",
-            render: (v: number | null) => (v ? formatDuration(v * 1000) : "—"),
+            render: (v: number | null) => (v != null ? formatDuration(v * 1000) : "—"),
           },
           {
             key: "agent_count",
