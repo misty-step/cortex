@@ -8,7 +8,7 @@ function OnlineBadge({ online }: { online: boolean }) {
   return (
     <span
       className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-        online ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+        online ? "bg-green-500/15 text-green-400" : "bg-gray-500/15 text-gray-400"
       }`}
     >
       <span className={`w-2 h-2 rounded-full mr-1 ${online ? "bg-green-500" : "bg-gray-400"}`} />
@@ -19,9 +19,9 @@ function OnlineBadge({ online }: { online: boolean }) {
 
 function EnabledBadge({ enabled }: { enabled: boolean }) {
   return enabled ? (
-    <span className="text-xs text-gray-500">Enabled</span>
+    <span className="text-xs text-green-400">Enabled</span>
   ) : (
-    <span className="text-xs text-red-500">Disabled</span>
+    <span className="text-xs text-red-400">Disabled</span>
   );
 }
 
