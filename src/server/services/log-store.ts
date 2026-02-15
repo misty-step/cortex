@@ -101,8 +101,11 @@ export function queryLogs(query: LogQuery): PaginatedResponse<LogEntry> {
     params.push(source);
   }
   if (q) {
-    // Use FTS5 for full-text search — escape special chars and add prefix matching
-    const sanitized = q.replace(/['"()*:^~]/g, " ").trim();
+    // Use FTS5 for full-text search — sanitize query to prevent operator injection
+    // Allowlist: alphanumeric, whitespace, dots, underscores, forward slashes
+    // This removes FTS5 operators: - (NOT), + (required), * (prefix), ^ (first token),
+    // ~ (NEAR), ( ) (grouping), : (column filter), " (phrase), ' (phrase), {} (column names)
+    const sanitized = q.replace(/[^a-zA-Z0-9\s._/]/g, "").trim();
     if (sanitized) {
       conditions.push("id IN (SELECT rowid FROM log_entries_fts WHERE log_entries_fts MATCH ?)");
       params.push(`"${sanitized}"*`);
