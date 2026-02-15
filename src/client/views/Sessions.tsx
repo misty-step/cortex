@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
@@ -48,10 +49,14 @@ export function Sessions() {
             key: "session_key",
             header: "Session",
             sortable: false,
-            render: (v: string) => (
-              <span className="font-mono text-xs" title={v}>
+            render: (v: string, row: Record<string, unknown>) => (
+              <Link
+                to={`/sessions/${row.agent_id}/${v}`}
+                className="font-mono text-xs text-blue-400 hover:underline"
+                title={v}
+              >
                 {v.split(":").slice(-2).join(":")}
-              </span>
+              </Link>
             ),
           },
           {
