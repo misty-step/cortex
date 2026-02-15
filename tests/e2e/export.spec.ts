@@ -1,24 +1,22 @@
 import { test, expect } from "@playwright/test";
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
-const readFile = promisify(fs.readFile);
-const unlink = promisify(fs.unlink);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 test.describe("Export functionality", () => {
   const downloadsPath = path.join(__dirname, "..", "..", "test-downloads");
 
   test.beforeEach(async () => {
     // Ensure downloads directory exists
-    if (!fs.existsSync(downloadsPath)) {
-      fs.mkdirSync(downloadsPath, { recursive: true });
-    }
+    await fs.mkdir(downloadsPath, { recursive: true }).catch(() => {});
 
     // Clear previous downloads
-    const files = fs.readdirSync(downloadsPath);
+    const files = await fs.readdir(downloadsPath).catch(() => []);
     for (const file of files) {
-      fs.unlinkSync(path.join(downloadsPath, file));
+      await fs.unlink(path.join(downloadsPath, file)).catch(() => {});
     }
   });
 
@@ -134,14 +132,14 @@ test.describe("Export data validation", () => {
 
     if (downloadPath) {
       // Read and validate the JSON
-      const content = await readFile(downloadPath, "utf-8");
+      const content = await fs.readFile(downloadPath, "utf-8");
       const data = JSON.parse(content);
 
       // Should be an array
       expect(Array.isArray(data)).toBe(true);
 
       // Clean up
-      await unlink(downloadPath);
+      await fs.unlink(downloadPath);
     }
   });
 
@@ -169,7 +167,7 @@ test.describe("Export data validation", () => {
 
     if (downloadPath) {
       // Read and validate the CSV
-      const content = await readFile(downloadPath, "utf-8");
+      const content = await fs.readFile(downloadPath, "utf-8");
 
       // Should have at least a header row and one data row
       const lines = content.trim().split("\n");
@@ -183,7 +181,7 @@ test.describe("Export data validation", () => {
       }
 
       // Clean up
-      await unlink(downloadPath);
+      await fs.unlink(downloadPath);
     }
   });
 });

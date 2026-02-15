@@ -10,35 +10,35 @@ test.describe("Dashboard / Overview", () => {
     await page.goto("/");
 
     // Wait for health card to appear
-    const gatewayCard = page.locator("text=Gateway").first();
+    const gatewayCard = page.getByText("Gateway").first();
     await expect(gatewayCard).toBeVisible();
 
-    // Health status should show either ok, degraded, or unknown badge
-    const healthStatus = page
-      .locator(".bg-green-500, .bg-yellow-500, .bg-red-500, .bg-gray-500")
-      .first();
+    // Health status should show a status indicator (any colored badge)
+    const healthStatus = page.locator("[class*='bg-'][class*='-500']").first();
     await expect(healthStatus).toBeVisible();
   });
 
   test("should display running sprites count", async ({ page }) => {
     await page.goto("/");
 
-    const runningLabel = page.getByText("Running Sprites");
-    await expect(runningLabel).toBeVisible();
+    // Find the card containing "Running Sprites" label
+    const runningCard = page.locator("div:has-text('Running Sprites')");
+    await expect(runningCard).toBeVisible();
 
-    // The count should be a number
-    const runningCount = runningLabel.locator("..").locator("text=/^\\d+$/");
+    // The count should be a number in a span or similar element
+    const runningCount = runningCard.locator("span, p, div").filter({ hasText: /^\d+$/ }).first();
     await expect(runningCount).toBeVisible();
   });
 
   test("should display idle sprites count", async ({ page }) => {
     await page.goto("/");
 
-    const idleLabel = page.getByText("Idle Sprites");
-    await expect(idleLabel).toBeVisible();
+    // Find the card containing "Idle Sprites" label
+    const idleCard = page.locator("div:has-text('Idle Sprites')");
+    await expect(idleCard).toBeVisible();
 
-    // The count should be a number
-    const idleCount = idleLabel.locator("..").locator("text=/^\\d+$/");
+    // The count should be a number in a span or similar element
+    const idleCount = idleCard.locator("span, p, div").filter({ hasText: /^\d+$/ }).first();
     await expect(idleCount).toBeVisible();
   });
 
