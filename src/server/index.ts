@@ -4,6 +4,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
+import { secureHeaders } from "hono/secure-headers";
 import { config } from "./config.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -61,6 +62,7 @@ startLogTailer(logDir, config.logDir, (entries) => {
 const app = new Hono();
 
 // Middleware
+app.use("*", secureHeaders());
 app.use(
   "*",
   cors({
@@ -79,6 +81,12 @@ app.route("/api", sse);
 
 // Ping endpoint
 app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
+
+// Global error handler
+app.onError((err, c) => {
+  console.error("[cortex] Unhandled error:", err);
+  return c.json({ error: "Internal server error" }, 500);
+});
 
 Bun.serve({
   fetch: app.fetch,
