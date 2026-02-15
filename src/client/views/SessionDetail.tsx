@@ -94,12 +94,20 @@ function truncateKey(key: string): string {
   return parts.length > 2 ? parts.slice(-2).join(":") : key;
 }
 
+function safeRelativeTime(iso: string): string {
+  const ms = new Date(iso).getTime();
+  return isNaN(ms) ? "invalid date" : relativeTime(ms);
+}
+
 export function SessionDetail() {
-  const { agentId, sessionKey } = useParams<{ agentId: string; sessionKey: string }>();
+  const { agentId = "", sessionKey = "" } = useParams<{ agentId: string; sessionKey: string }>();
   const { data, loading, error } = useApi<SessionDetailType>(
-    `/api/sessions/${agentId}/${sessionKey}`,
+    `/api/sessions/${encodeURIComponent(agentId)}/${encodeURIComponent(sessionKey)}`,
   );
 
+  if (!agentId || !sessionKey) {
+    return <div className="p-4 text-red-500">Invalid session URL</div>;
+  }
   if (loading) return <div className="p-4">Loading session details...</div>;
   if (error) {
     return (
@@ -138,13 +146,13 @@ export function SessionDetail() {
           {data.startTime && (
             <>
               <dt className="text-[var(--fg3)]">Started</dt>
-              <dd>{relativeTime(new Date(data.startTime).getTime())}</dd>
+              <dd>{safeRelativeTime(data.startTime)}</dd>
             </>
           )}
           {data.lastActivity && (
             <>
               <dt className="text-[var(--fg3)]">Last activity</dt>
-              <dd>{relativeTime(new Date(data.lastActivity).getTime())}</dd>
+              <dd>{safeRelativeTime(data.lastActivity)}</dd>
             </>
           )}
           {data.currentTask && (

@@ -53,11 +53,15 @@ export async function collectSessionDetail(
     if (isRecord(sessionsData)) {
       const session = sessionsData[sessionKey];
       if (isRecord(session)) {
-        status = session.systemSent ? "active" : "idle";
+        status = session.systemSent === true ? "active" : "idle";
         startTime =
-          typeof session.createdAt === "number" ? new Date(session.createdAt).toISOString() : null;
+          typeof session.createdAt === "number" && !isNaN(new Date(session.createdAt).getTime())
+            ? new Date(session.createdAt).toISOString()
+            : null;
         lastActivity =
-          typeof session.updatedAt === "number" ? new Date(session.updatedAt).toISOString() : null;
+          typeof session.updatedAt === "number" && !isNaN(new Date(session.updatedAt).getTime())
+            ? new Date(session.updatedAt).toISOString()
+            : null;
         currentTask = typeof session.task === "string" ? session.task : null;
         model = typeof session.model === "string" ? session.model : null;
       } else {

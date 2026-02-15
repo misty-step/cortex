@@ -142,7 +142,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
             key={i}
             className="bg-[var(--bg3)] p-2 rounded text-xs font-mono overflow-x-auto whitespace-pre my-1"
           >
-            {block.content.trim()}
+            {block.content}
           </pre>
         );
       }
