@@ -8,6 +8,7 @@ import { Crons } from "./views/Crons";
 import { Errors } from "./views/Errors";
 import { Agents } from "./views/Agents";
 import { AgentDetail } from "./views/AgentDetail";
+import { SessionDetail } from "./views/SessionDetail";
 import { SSEProvider } from "./components/SSEProvider";
 
 export function App() {
@@ -17,6 +18,7 @@ export function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Overview />} />
+            <Route path="/sessions/:agentId/:sessionKey" element={<SessionDetail />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sprites" element={<Sprites />} />
             <Route path="/logs" element={<Logs />} />
