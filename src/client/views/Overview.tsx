@@ -19,7 +19,7 @@ export function Overview() {
     data: sprites,
     loading: spritesLoading,
     error: spritesError,
-  } = useApi<PaginatedResponse<SpriteStatus>>("/api/sprites");
+  } = useApi<PaginatedResponse<SpriteStatus>>("/api/sprites?limit=10000");
 
   const spriteList = useMemo(() => sprites?.data ?? [], [sprites]);
   const runningSprites = spriteList.filter((s) => s.status === "running").length;

@@ -11,7 +11,7 @@ export function Models() {
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
   const { data, loading, error } =
-    useApi<PaginatedResponse<Record<string, unknown>>>("/api/models");
+    useApi<PaginatedResponse<Record<string, unknown>>>("/api/models?limit=10000");
   const models = useMemo(() => data?.data ?? [], [data]);
 
   // Get unique providers for filter dropdown (filter out undefined/null)

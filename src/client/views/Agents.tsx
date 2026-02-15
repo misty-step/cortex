@@ -34,7 +34,8 @@ function formatHeartbeat(isoString: string | null): string {
 }
 
 export function Agents() {
-  const { data, loading, error } = useApi<PaginatedResponse<AgentStatus>>("/api/agents");
+  const { data, loading, error } =
+    useApi<PaginatedResponse<AgentStatus>>("/api/agents?limit=10000");
   const agents = data?.data ?? [];
 
   if (loading) return <div className="p-4">Loading agents...</div>;

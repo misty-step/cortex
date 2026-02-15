@@ -10,10 +10,9 @@ import type { PaginatedResponse } from "../../shared/types";
 export function Crons() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ limit: "10000" });
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
-  const qs = params.toString();
-  const url = qs ? `/api/crons?${qs}` : "/api/crons";
+  const url = `/api/crons?${params.toString()}`;
   const { data, loading, error } = useApi<PaginatedResponse<Record<string, unknown>>>(url);
 
   // Server handles text search via ?q=; status filter is client-side only

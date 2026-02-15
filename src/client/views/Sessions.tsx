@@ -9,10 +9,9 @@ import type { PaginatedResponse } from "../../shared/types";
 
 export function Sessions() {
   const [searchQuery, setSearchQuery] = useState("");
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ limit: "10000" });
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
-  const qs = params.toString();
-  const url = qs ? `/api/sessions?${qs}` : "/api/sessions";
+  const url = `/api/sessions?${params.toString()}`;
   const { data, loading, error } = useApi<PaginatedResponse<Record<string, unknown>>>(url);
 
   const filteredSessions = useMemo(() => {
