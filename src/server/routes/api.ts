@@ -5,7 +5,9 @@ import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { collectAgents } from "../collectors/agents.js";
 import { collectAgentDetail } from "../collectors/agent-detail.js";
+import { collectSessionDetail } from "../collectors/session-detail.js";
 import { collectSprites } from "../collectors/sprites.js";
+import { collectApprovals } from "../collectors/approvals.js";
 import { config } from "../config.js";
 import { queryLogs } from "../services/log-store.js";
 import type { LogLevel, LogSource } from "../../shared/types.js";
@@ -39,6 +41,27 @@ api.get("/sessions", async (c) => {
   }
 
   return c.json(paginateInMemory(filteredSessions, page, limit));
+});
+
+// Session detail — sessionKey may contain colons, dots, @ signs
+const SAFE_AGENT_ID = /^[\w-]+$/;
+const SAFE_SESSION_KEY = /^[\w:.@-]+$/;
+
+api.get("/sessions/:agentId/:sessionKey", async (c) => {
+  const agentId = c.req.param("agentId");
+  const sessionKey = c.req.param("sessionKey");
+  if (
+    !SAFE_AGENT_ID.test(agentId) ||
+    !SAFE_SESSION_KEY.test(sessionKey) ||
+    sessionKey.includes("..")
+  ) {
+    return c.json({ error: "Invalid agent ID or session key" }, 400);
+  }
+  const detail = await collectSessionDetail(config.openclawHome, agentId, sessionKey);
+  if (!detail) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+  return c.json(detail);
 });
 
 function clampInt(raw: string | undefined, fallback: number, max: number): number {
@@ -137,6 +160,12 @@ api.get("/sprites", async (c) => {
     console.error("[api/sprites] Failed to collect sprite status:", err);
     return c.json([]);
   }
+});
+
+// Exec approvals — pending approval requests from agents
+api.get("/approvals", async (c) => {
+  const summary = await collectApprovals(config.openclawHome);
+  return c.json(summary);
 });
 
 export { api };

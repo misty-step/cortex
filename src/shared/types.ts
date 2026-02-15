@@ -93,6 +93,7 @@ export interface AgentDetail extends AgentStatus {
   authProfiles: AgentAuthProfile[];
   sessions: AgentSessionEntry[];
   skills: string[];
+  capabilities: AgentCapabilities;
 }
 
 export interface AgentModelInfo {
@@ -116,6 +117,66 @@ export interface AgentSessionEntry {
   key: string;
   updatedAt: number;
   model: string | null;
+}
+
+// ─── Exec Approval Types ──────────────────────────────────────────────────
+
+export type ExecApprovalDecision = "allow-once" | "allow-always" | "deny";
+
+export interface PendingExecApproval {
+  id: string;
+  agentId: string | null;
+  sessionKey: string | null;
+  command: string;
+  cwd: string | null;
+  createdAtMs: number;
+  expiresAtMs: number;
+}
+
+export interface ExecApprovalSummary {
+  pending: PendingExecApproval[];
+  totalPending: number;
+}
+
+// ─── Session Message Types ────────────────────────────────────────────────
+
+export type MessageRole = "user" | "assistant" | "tool" | "system";
+export type MessageKind = "meta" | "user" | "assistant" | "thinking" | "tool";
+
+export interface SessionMessage {
+  id: string;
+  role: MessageRole;
+  kind: MessageKind;
+  text: string;
+  sessionKey: string;
+  agentId: string;
+  timestampMs: number;
+}
+
+export interface SessionDetail {
+  agentId: string;
+  sessionKey: string;
+  model: string | null;
+  status: string;
+  startTime: string | null;
+  lastActivity: string | null;
+  currentTask: string | null;
+  messages: SessionMessage[];
+}
+
+// ─── Agent Capability Types ───────────────────────────────────────────────
+
+export type ExecSecurity = "deny" | "allowlist" | "full";
+export type ExecAsk = "off" | "on-miss" | "always";
+export type ExecHost = "sandbox" | "gateway" | "node";
+
+export interface AgentCapabilities {
+  execSecurity: ExecSecurity | null;
+  execAsk: ExecAsk | null;
+  execHost: ExecHost | null;
+  hasInternet: boolean;
+  hasSubagents: boolean;
+  reasoning: boolean;
 }
 
 // ─── API Query Types ────────────────────────────────────────────────────────
@@ -150,7 +211,8 @@ export type SSEEventType =
   | "tool_call"
   | "log_entry"
   | "crons"
-  | "models";
+  | "models"
+  | "approvals";
 
 export interface SSEEvent {
   type: SSEEventType;
