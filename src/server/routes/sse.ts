@@ -1,10 +1,29 @@
 import { Hono } from "hono";
-import { subscribe } from "../services/event-bus.js";
+import {
+  subscribe,
+  incrementConnection,
+  decrementConnection,
+  MAX_CONNECTIONS,
+} from "../services/event-bus.js";
 import type { SSEEvent } from "../../shared/types.js";
 
 const sse = new Hono();
 
 sse.get("/events", async (c) => {
+  // Check connection limit before accepting
+  if (!incrementConnection()) {
+    return c.json(
+      {
+        error: "Too Many Connections",
+        message: `Maximum concurrent SSE connections (${MAX_CONNECTIONS}) reached. Please retry later.`,
+      },
+      429,
+      {
+        "Retry-After": "30",
+      },
+    );
+  }
+
   c.header("Content-Type", "text/event-stream");
   c.header("Cache-Control", "no-cache");
   c.header("Connection", "keep-alive");
@@ -45,6 +64,7 @@ sse.get("/events", async (c) => {
         clearInterval(interval);
         unsubscribe();
         isClosed = true;
+        decrementConnection();
         try {
           controller.close();
         } catch {
