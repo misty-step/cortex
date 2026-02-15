@@ -7,7 +7,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const normalized = status?.toLowerCase() || "unknown";
-  
+
   const colors: Record<string, string> = {
     ok: "bg-green-500/15 text-green-400",
     reachable: "bg-green-500/15 text-green-400",

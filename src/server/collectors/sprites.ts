@@ -110,7 +110,7 @@ async function readSpriteSession(
       fileSize = stat.size;
     } catch (statErr) {
       // If stat fails (e.g., file doesn't exist), try reading anyway - may be a new file
-       
+
       const _ = statErr;
     }
 
