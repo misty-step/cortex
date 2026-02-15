@@ -6,6 +6,7 @@ const navItems = [
   { path: "/", label: "Overview" },
   { path: "/agents", label: "Agents" },
   { path: "/sessions", label: "Sessions" },
+  { path: "/sprites", label: "Sprites" },
   { path: "/logs", label: "Logs" },
   { path: "/crons", label: "Cron Jobs" },
   { path: "/errors", label: "Errors" },
