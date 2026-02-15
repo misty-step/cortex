@@ -8,6 +8,10 @@ type EventHandler = (event: SSEEvent) => void;
 
 const listeners = new Set<EventHandler>();
 
+// Connection limiting for SSE endpoint
+export const MAX_CONNECTIONS = 20;
+let activeConnectionCount = 0;
+
 export function subscribe(handler: EventHandler): () => void {
   listeners.add(handler);
   return () => listeners.delete(handler);
@@ -17,4 +21,32 @@ export function broadcast(event: SSEEvent): void {
   for (const handler of listeners) {
     handler(event);
   }
+}
+
+/**
+ * Increment the active SSE connection count.
+ * @returns true if connection allowed, false if at limit
+ */
+export function incrementConnection(): boolean {
+  if (activeConnectionCount >= MAX_CONNECTIONS) {
+    return false;
+  }
+  activeConnectionCount++;
+  return true;
+}
+
+/**
+ * Decrement the active SSE connection count.
+ */
+export function decrementConnection(): void {
+  if (activeConnectionCount > 0) {
+    activeConnectionCount--;
+  }
+}
+
+/**
+ * Get the current number of active SSE connections.
+ */
+export function getConnectionCount(): number {
+  return activeConnectionCount;
 }
