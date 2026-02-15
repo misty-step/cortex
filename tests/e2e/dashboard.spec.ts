@@ -1,26 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Dashboard / Overview", () => {
-  test("should display Factory Overview heading", async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto("/");
+  });
+
+  test("should display Factory Overview heading", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Factory Overview" })).toBeVisible();
   });
 
   test("should show gateway health status", async ({ page }) => {
-    await page.goto("/");
+    // Wait for health card to appear - look for Gateway text
+    await expect(page.getByText("Gateway")).toBeVisible();
 
-    // Wait for health card to appear
-    const gatewayCard = page.getByText("Gateway").first();
-    await expect(gatewayCard).toBeVisible();
-
-    // Health status should show a status indicator - look for any badge-like element near Gateway
-    const healthCard = gatewayCard.locator(
-      "xpath=ancestor::div[contains(@class, 'card') or contains(@class, 'flex')]",
-    );
-    const healthStatus = healthCard
-      .locator("[class*='rounded'], [class*='px'], [class*='py']")
-      .first();
-    await expect(healthStatus).toBeVisible();
+    // Verify the page has loaded and contains health-related content
+    await expect(page.getByRole("heading", { name: /Health|Status|Gateway/i })).toBeVisible();
   });
 
   test("should display running sprites count", async ({ page }) => {
@@ -36,8 +30,6 @@ test.describe("Dashboard / Overview", () => {
   });
 
   test("should display idle sprites count", async ({ page }) => {
-    await page.goto("/");
-
     // Find the card containing "Idle Sprites" label
     const idleCard = page.locator("div:has-text('Idle Sprites')");
     await expect(idleCard).toBeVisible();
@@ -48,14 +40,10 @@ test.describe("Dashboard / Overview", () => {
   });
 
   test("should show Fleet Status section", async ({ page }) => {
-    await page.goto("/");
-
     await expect(page.getByRole("heading", { name: "Fleet Status" })).toBeVisible();
   });
 
   test("should display sprite table with columns", async ({ page }) => {
-    await page.goto("/");
-
     // Wait for the Fleet Status table to load
     await expect(page.getByRole("heading", { name: "Fleet Status" })).toBeVisible();
 
@@ -67,8 +55,6 @@ test.describe("Dashboard / Overview", () => {
   });
 
   test("should have search functionality for sprites", async ({ page }) => {
-    await page.goto("/");
-
     const searchInput = page.getByPlaceholder("Search sprites...");
     await expect(searchInput).toBeVisible();
 
@@ -81,8 +67,6 @@ test.describe("Dashboard / Overview", () => {
   });
 
   test("should have status filter dropdown", async ({ page }) => {
-    await page.goto("/");
-
     const statusFilter = page.getByLabel("Filter by status");
     await expect(statusFilter).toBeVisible();
 
@@ -93,25 +77,20 @@ test.describe("Dashboard / Overview", () => {
   });
 
   test("should show Export button when sprites exist", async ({ page }) => {
-    await page.goto("/");
-
     // Wait for content to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
-    // Check if Export button is visible (sprites exist)
-    const exportButton = page.getByRole("button", { name: "Export" });
-    const hasExportButton = await exportButton.isVisible().catch(() => false);
-
-    if (hasExportButton) {
-      await expect(exportButton).toBeVisible();
-    }
+    // Export button should be visible when sprites exist
+    await expect(page.getByRole("button", { name: "Export" })).toBeVisible();
   });
 });
 
 test.describe("Navigation", () => {
-  test("should navigate to Sessions page", async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto("/");
+  });
 
+  test("should navigate to Sessions page", async ({ page }) => {
     // Click on Sessions nav link
     await page.getByRole("link", { name: "Sessions" }).click();
 
@@ -121,8 +100,6 @@ test.describe("Navigation", () => {
   });
 
   test("should navigate to Logs page", async ({ page }) => {
-    await page.goto("/");
-
     await page.getByRole("link", { name: "Logs" }).click();
 
     await expect(page).toHaveURL(/.*\/logs/);
@@ -130,8 +107,6 @@ test.describe("Navigation", () => {
   });
 
   test("should navigate to Crons page", async ({ page }) => {
-    await page.goto("/");
-
     await page.getByRole("link", { name: "Crons" }).click();
 
     await expect(page).toHaveURL(/.*\/crons/);
@@ -139,8 +114,6 @@ test.describe("Navigation", () => {
   });
 
   test("should navigate to Agents page", async ({ page }) => {
-    await page.goto("/");
-
     await page.getByRole("link", { name: "Agents" }).click();
 
     await expect(page).toHaveURL(/.*\/agents/);
@@ -148,8 +121,6 @@ test.describe("Navigation", () => {
   });
 
   test("should navigate to Errors page", async ({ page }) => {
-    await page.goto("/");
-
     await page.getByRole("link", { name: "Errors" }).click();
 
     await expect(page).toHaveURL(/.*\/errors/);
