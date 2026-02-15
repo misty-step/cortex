@@ -61,7 +61,7 @@ describe("log-tailer", () => {
     originalFs.writeFileSync(path.join(tmpDir, "gateway.err.log"), "");
 
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
-    await startLogTailer(tmpDir, () => {});
+    await startLogTailer(tmpDir, tmpDir, () => {});
 
     // Should have registered watchers for both files
     expect(watchCallbacks.has(path.join(tmpDir, "gateway.log"))).toBe(true);
@@ -76,7 +76,7 @@ describe("log-tailer", () => {
     const batches: Array<{ entry: { message: string }; source: string }[]> = [];
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await startLogTailer(tmpDir, (batch) => {
+    await startLogTailer(tmpDir, tmpDir, (batch) => {
       batches.push(batch);
     });
 
@@ -103,7 +103,7 @@ describe("log-tailer", () => {
     const batches: Array<{ entry: { message: string; level: string }; source: string }[]> = [];
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await startLogTailer(tmpDir, (batch) => {
+    await startLogTailer(tmpDir, tmpDir, (batch) => {
       batches.push(batch);
     });
 
@@ -127,7 +127,7 @@ describe("log-tailer", () => {
     const batches: Array<{ entry: { message: string }; source: string }[]> = [];
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await startLogTailer(tmpDir, (batch) => {
+    await startLogTailer(tmpDir, tmpDir, (batch) => {
       batches.push(batch);
     });
 
@@ -154,7 +154,7 @@ describe("log-tailer", () => {
     const batches: Array<{ entry: { message: string }; source: string }[]> = [];
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await startLogTailer(tmpDir, (batch) => {
+    await startLogTailer(tmpDir, tmpDir, (batch) => {
       batches.push(batch);
     });
 
@@ -184,7 +184,7 @@ describe("log-tailer", () => {
     const batches: Array<{ entry: { message: string }; source: string }[]> = [];
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await startLogTailer(tmpDir, (batch) => {
+    await startLogTailer(tmpDir, tmpDir, (batch) => {
       batches.push(batch);
     });
 
@@ -206,7 +206,7 @@ describe("log-tailer", () => {
 
     const { startLogTailer, stopLogTailer } =
       await import("../../../src/server/services/log-tailer");
-    await startLogTailer(tmpDir, () => {});
+    await startLogTailer(tmpDir, tmpDir, () => {});
 
     const watcherCountBefore = watchCallbacks.size;
     expect(watcherCountBefore).toBeGreaterThanOrEqual(2);
@@ -221,6 +221,6 @@ describe("log-tailer", () => {
     // Don't create any files in tmpDir
     const { startLogTailer } = await import("../../../src/server/services/log-tailer");
 
-    await expect(startLogTailer(tmpDir, () => {})).resolves.toBeUndefined();
+    await expect(startLogTailer(tmpDir, tmpDir, () => {})).resolves.toBeUndefined();
   });
 });

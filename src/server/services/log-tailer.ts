@@ -13,14 +13,16 @@ type LogBatchHandler = (entries: LogBatch) => void;
 
 const watchers = new Map<string, { close: () => void }>();
 
-export async function startLogTailer(logDir: string, onBatch: LogBatchHandler): Promise<void> {
+export async function startLogTailer(
+  logDir: string,
+  jsonLogDir: string,
+  onBatch: LogBatchHandler,
+): Promise<void> {
   const gwLogPath = path.join(logDir, "gateway.log");
   tailFile(gwLogPath, parseGatewayLogLine, "gateway-log", onBatch);
 
   const gwErrPath = path.join(logDir, "gateway.err.log");
   tailFile(gwErrPath, parseGatewayErrLine, "gateway-err", onBatch);
-
-  const jsonLogDir = "/tmp/openclaw";
   try {
     const files = await fs.readdir(jsonLogDir);
     const today = new Date().toISOString().slice(0, 10);
