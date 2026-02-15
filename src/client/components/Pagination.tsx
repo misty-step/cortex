@@ -9,7 +9,7 @@ interface PaginationProps {
 export function Pagination({ page, total, limit, hasMore, onPageChange }: PaginationProps) {
   if (total <= limit && page === 1) return null;
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div className="flex items-center justify-between pt-3 text-sm text-[var(--fg3)]">

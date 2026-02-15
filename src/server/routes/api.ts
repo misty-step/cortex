@@ -200,7 +200,7 @@ api.get("/crons", async (c) => {
  * GET /api/models
  * List all available AI models and their status.
  *
- * @returns {ModelInfo[]} Array of model information
+ * @returns {PaginatedResponse<ModelInfo>} Paginated model list
  * @example
  * // Response
  * [{ "id": "kimi-k2.5", "name": "Kimi K2.5", "provider": "moonshot", "status": "available" }]
@@ -248,7 +248,7 @@ api.get("/agents/:id", async (c) => {
  * GET /api/agents
  * List all agents with their status information.
  *
- * @returns {AgentStatus[]} Array of agent status summaries
+ * @returns {PaginatedResponse<AgentStatus>} Paginated agent list
  * @example
  * // Response
  * [{ "id": "amos", "name": "Amos", "online": true, "sessionCount": 3, ... }]
@@ -306,7 +306,7 @@ api.get("/errors", (c) => {
  * GET /api/sprites
  * List all sprites and their current status including task and runtime info.
  *
- * @returns {SpriteStatus[]} Array of sprite status information
+ * @returns {PaginatedResponse<SpriteStatus>} Paginated sprite list
  */
 api.get("/sprites", async (c) => {
   const limit = clampInt(c.req.query("limit"), 100, 10_000);

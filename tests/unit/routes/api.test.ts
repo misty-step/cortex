@@ -43,7 +43,7 @@ vi.mock("../../../src/server/collectors/cron", () => ({
 vi.mock("../../../src/server/collectors/models", () => ({
   collectModels: vi
     .fn()
-    .mockReturnValue([
+    .mockResolvedValue([
       { id: "test/model", name: "Test Model", provider: "test", status: "available" },
     ]),
 }));
