@@ -74,7 +74,7 @@ app.use(
 app.use(
   "*",
   cors({
-    origin: [`http://localhost:${config.port}`, "http://localhost:5173"],
+    origin: config.allowedOrigins,
   }),
 );
 
@@ -102,8 +102,8 @@ app.onError((err, c) => {
 
 Bun.serve({
   fetch: app.fetch,
-  port: config.port,
   hostname: "127.0.0.1",
+  port: config.port,
 });
 console.log(`Cortex v2 ready at http://localhost:${config.port}`);
 

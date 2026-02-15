@@ -17,10 +17,11 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: "127.0.0.1",
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:18790",
+        target: process.env.VITE_API_URL ?? "http://localhost:18790",
         changeOrigin: true,
       },
     },

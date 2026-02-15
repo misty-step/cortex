@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { SessionInfo } from "../../shared/types.js";
+import { readSessionsForAgent } from "../services/session-file-reader.js";
 
 export async function collectSessions(openclawHome: string): Promise<SessionInfo[]> {
   const sessions: SessionInfo[] = [];
@@ -13,22 +14,8 @@ export async function collectSessions(openclawHome: string): Promise<SessionInfo
     for (const agentId of agentIds) {
       const sessionsFile = path.join(agentsDir, agentId, "sessions", "sessions.json");
       try {
-        const content = await fs.readFile(sessionsFile, "utf-8");
-        const sessionsData = JSON.parse(content);
-
-        // sessions.json contains multiple sessions keyed by session identifier
-        for (const [sessionKey, session] of Object.entries(sessionsData)) {
-          const s = session as Record<string, unknown>;
-          sessions.push({
-            agent_id: agentId,
-            session_key: sessionKey,
-            status: s.systemSent ? "active" : "idle",
-            start_time: s.createdAt ? new Date(s.createdAt as number).toISOString() : null,
-            last_activity: s.updatedAt ? new Date(s.updatedAt as number).toISOString() : null,
-            current_task: (s.task as string) || "—",
-            model: s.model as string | undefined,
-          });
-        }
+        const agentSessions = await readSessionsForAgent(sessionsFile, agentId);
+        sessions.push(...agentSessions);
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
           console.error(`[collector/sessions] Failed to read sessions for agent ${agentId}:`, err);
