@@ -1,6 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useSSE } from "../hooks/useSSE";
-import { SearchBar } from "./SearchBar";
 
 const navItems = [
   { path: "/", label: "Overview" },
@@ -52,8 +51,7 @@ export function Layout() {
         </div>
       </nav>
       <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[var(--bg)] border-b border-[var(--border)]">
-          <SearchBar placeholder="Search..." />
+        <header className="sticky top-0 z-10 flex items-center justify-end px-6 py-3 bg-[var(--bg)] border-b border-[var(--border)]">
           <div className="text-sm text-[var(--fg3)]">{connected ? "Live" : "Offline"}</div>
         </header>
         <div className="p-5">
