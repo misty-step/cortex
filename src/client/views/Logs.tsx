@@ -3,7 +3,7 @@ import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
-import type { LogEntry } from "../../shared/types";
+import type { LogEntry, PaginatedResponse } from "../../shared/types";
 
 export function Logs() {
   const [level, setLevel] = useState("");
@@ -13,12 +13,12 @@ export function Logs() {
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
   const qs = params.toString();
   const url = qs ? `/api/logs?${qs}` : "/api/logs";
-  const { data: raw, loading, error } = useApi<LogEntry[] | { data: LogEntry[] }>(url);
+  const { data, loading, error } = useApi<PaginatedResponse<LogEntry>>(url);
 
   const logs = useMemo<LogEntry[]>(() => {
-    if (!raw || error) return [];
-    return Array.isArray(raw) ? raw : (raw.data ?? []);
-  }, [raw, error]);
+    if (!data || error) return [];
+    return data.data;
+  }, [data, error]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load logs</div>;

@@ -93,8 +93,10 @@ api.get("/crons", async (c) => {
 
 // Models
 api.get("/models", async (c) => {
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
   const models = await collectModels();
-  return c.json(models);
+  return c.json(paginateInMemory(models, page, limit));
 });
 
 // Agent detail
@@ -112,8 +114,22 @@ api.get("/agents/:id", async (c) => {
 
 // Agents status dashboard
 api.get("/agents", async (c) => {
-  const agents = await collectAgents(config.openclawHome);
-  return c.json(agents);
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
+  const allAgents = await collectAgents(config.openclawHome);
+
+  // Filter by search query if provided
+  let filteredAgents = allAgents;
+  if (q) {
+    const searchTerm = q.toLowerCase();
+    filteredAgents = allAgents.filter(
+      (a) => a.name.toLowerCase().includes(searchTerm) || a.id.toLowerCase().includes(searchTerm),
+    );
+  }
+
+  return c.json(paginateInMemory(filteredAgents, page, limit));
 });
 
 // Errors (from SQLite, filtered to error level)
@@ -130,12 +146,23 @@ api.get("/errors", (c) => {
 
 // Sprites — fleet status with task and runtime info
 api.get("/sprites", async (c) => {
+  const limit = clampInt(c.req.query("limit"), 100, 10_000);
+  const page = clampInt(c.req.query("page"), 1, 100_000);
+  const q = c.req.query("q");
+
   try {
-    const sprites = await collectSprites(config.openclawHome);
-    return c.json(sprites);
+    let sprites = await collectSprites(config.openclawHome);
+
+    // Filter by search query if provided
+    if (q) {
+      const searchTerm = q.toLowerCase();
+      sprites = sprites.filter((s) => s.name.toLowerCase().includes(searchTerm));
+    }
+
+    return c.json(paginateInMemory(sprites, page, limit));
   } catch (err) {
     console.error("[api/sprites] Failed to collect sprite status:", err);
-    return c.json([]);
+    return c.json(paginateInMemory([], page, limit));
   }
 });
 

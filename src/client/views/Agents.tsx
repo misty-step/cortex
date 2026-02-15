@@ -3,7 +3,7 @@ import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { relativeTime } from "../lib/formatters";
-import type { AgentStatus } from "../../shared/types";
+import type { AgentStatus, PaginatedResponse } from "../../shared/types";
 
 function OnlineBadge({ online }: { online: boolean }) {
   return (
@@ -34,8 +34,8 @@ function formatHeartbeat(isoString: string | null): string {
 }
 
 export function Agents() {
-  const { data, loading, error } = useApi<AgentStatus[]>("/api/agents");
-  const agents = data ?? [];
+  const { data, loading, error } = useApi<PaginatedResponse<AgentStatus>>("/api/agents");
+  const agents = data?.data ?? [];
 
   if (loading) return <div className="p-4">Loading agents...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load agents: {error}</div>;
