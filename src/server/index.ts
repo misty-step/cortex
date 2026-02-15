@@ -83,6 +83,7 @@ app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
 Bun.serve({
   fetch: app.fetch,
   port: config.port,
+  hostname: "127.0.0.1",
 });
 console.log(`Cortex v2 ready at http://localhost:${config.port}`);
 
