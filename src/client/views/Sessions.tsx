@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
@@ -44,11 +45,18 @@ export function Sessions() {
             key: "session_key",
             header: "Session",
             sortable: false,
-            render: (v: string) => (
-              <span className="font-mono text-xs" title={v}>
-                {v.split(":").slice(-2).join(":")}
-              </span>
-            ),
+            render: (v: string, row: Record<string, unknown>) => {
+              const agentId = typeof row.agent_id === "string" ? row.agent_id : "";
+              return (
+                <Link
+                  to={`/sessions/${encodeURIComponent(agentId)}/${encodeURIComponent(v)}`}
+                  className="font-mono text-xs text-blue-400 hover:underline"
+                  title={v}
+                >
+                  {v.split(":").slice(-2).join(":")}
+                </Link>
+              );
+            },
           },
           {
             key: "status",

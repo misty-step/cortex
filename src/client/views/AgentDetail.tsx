@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { DataTable } from "../components/DataTable";
 import { relativeTime, formatTokens } from "../lib/formatters";
-import type { AgentDetail as AgentDetailType } from "../../shared/types";
+import type { AgentDetail as AgentDetailType, AgentCapabilities } from "../../shared/types";
 
 function OnlineBadge({ online }: { online: boolean }) {
   return (
@@ -37,6 +37,68 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </h3>
       {children}
     </div>
+  );
+}
+
+function CapabilityBadge({ label, color }: { label: string; color: string }) {
+  const colors: Record<string, string> = {
+    red: "bg-red-500/15 text-red-400",
+    yellow: "bg-yellow-500/15 text-yellow-400",
+    green: "bg-green-500/15 text-green-400",
+    blue: "bg-blue-500/15 text-blue-400",
+    purple: "bg-purple-500/15 text-purple-400",
+  };
+  return (
+    <span
+      className={`inline-block px-2 py-1 rounded text-xs font-medium ${colors[color] ?? colors.blue}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function CapabilitiesSection({
+  capabilities,
+  subagentCount,
+}: {
+  capabilities: AgentCapabilities;
+  subagentCount: number;
+}) {
+  const badges: { label: string; color: string }[] = [];
+
+  if (capabilities.execSecurity === "full") badges.push({ label: "Full Exec", color: "red" });
+  else if (capabilities.execSecurity === "allowlist")
+    badges.push({ label: "Allowlist", color: "yellow" });
+  else if (capabilities.execSecurity === "deny")
+    badges.push({ label: "Exec Denied", color: "green" });
+
+  if (capabilities.execAsk === "always") badges.push({ label: "Ask Always", color: "blue" });
+  else if (capabilities.execAsk === "on-miss")
+    badges.push({ label: "Ask on Miss", color: "yellow" });
+  else if (capabilities.execAsk === "off") badges.push({ label: "Auto-Approve", color: "red" });
+
+  if (capabilities.execHost === "sandbox") badges.push({ label: "Sandbox", color: "green" });
+  else if (capabilities.execHost === "gateway") badges.push({ label: "Gateway", color: "yellow" });
+  else if (capabilities.execHost === "node") badges.push({ label: "Direct Node", color: "red" });
+
+  if (capabilities.hasInternet) badges.push({ label: "Internet", color: "green" });
+  if (capabilities.reasoning) badges.push({ label: "Reasoning", color: "purple" });
+  if (subagentCount > 0)
+    badges.push({
+      label: `${subagentCount} Subagent${subagentCount > 1 ? "s" : ""}`,
+      color: "blue",
+    });
+
+  if (badges.length === 0) return null;
+
+  return (
+    <Section title="Capabilities">
+      <div className="flex flex-wrap gap-2">
+        {badges.map((b) => (
+          <CapabilityBadge key={b.label} label={b.label} color={b.color} />
+        ))}
+      </div>
+    </Section>
   );
 }
 
@@ -107,6 +169,9 @@ export function AgentDetail() {
           <dd>{data.sessionCount}</dd>
         </dl>
       </Section>
+
+      {/* Capabilities */}
+      <CapabilitiesSection capabilities={data.capabilities} subagentCount={data.subagents.length} />
 
       {/* Auth Profiles */}
       {data.authProfiles.length > 0 && (

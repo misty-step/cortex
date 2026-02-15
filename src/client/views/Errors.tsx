@@ -4,6 +4,7 @@ import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { MarkdownContent } from "../components/MarkdownContent";
 import type { LogEntry, PaginatedResponse } from "../../shared/types";
 
 export function Errors() {
@@ -59,7 +60,13 @@ export function Errors() {
           { key: "timestamp", header: "Time", sortable: true },
           { key: "source", header: "Source", sortable: true },
           { key: "level", header: "Level", sortable: true },
-          { key: "message", header: "Message", sortable: false },
+          {
+            key: "message",
+            header: "Message",
+            sortable: false,
+            render: (v: string) =>
+              v && v.length > 80 ? <MarkdownContent content={v} /> : (v ?? "—"),
+          },
         ]}
         data={errors}
       />
