@@ -13,7 +13,6 @@ import { sse } from "./routes/sse.js";
 import { initDb, runMigrations, closeDb } from "./db.js";
 import { startLogTailer, stopLogTailer } from "./services/log-tailer.js";
 import { batchInsertLogEntries } from "./services/log-store.js";
-import { broadcast } from "./services/event-bus.js";
 import type { LogEntry } from "../shared/types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,15 +43,6 @@ startLogTailer(logDir, config.logDir, (entries) => {
 
   // Persist to database
   batchInsertLogEntries(logEntries);
-
-  // Broadcast to connected SSE clients
-  for (const entry of logEntries) {
-    broadcast({
-      type: "log_entry",
-      data: entry,
-      timestamp: Date.now(),
-    });
-  }
 }).catch((err) => {
   console.error("[cortex] Log tailer failed to start:", err);
 });
