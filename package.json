@@ -21,7 +21,7 @@
     "test:server": "vitest run",
     "test:client": "vitest run --config vitest.client.config.ts",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage && vitest run --config vitest.client.config.ts --coverage",
     "test:e2e": "playwright test",
     "validate": "bun run typecheck && bun run lint && bun run test && bun run build",
     "db:migrate": "bun src/server/db.ts --migrate",
