@@ -9,7 +9,7 @@ import { config } from "../config.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { queryLogs } from "../services/log-store.js";
-import type { LogLevel, LogSource, SpriteStatus } from "../../shared/types.js";
+import type { LogLevel, LogSource, SpriteStatus, PaginatedResponse, SessionInfo, LogEntry } from "../../shared/types.js";
 
 const execFileAsync = promisify(execFile);
 

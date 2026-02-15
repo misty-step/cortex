@@ -2,9 +2,9 @@
 
 REST API reference for the Cortex monitoring dashboard.
 
-**Base URL:** `http://localhost:3000/api`
+**Base URL:** `http://localhost:18790/api`
 
-All responses are JSON. All list endpoints support pagination.
+All responses are JSON. List endpoints (`/sessions`, `/logs`, `/errors`, `/crons`) support pagination.
 
 ---
 
@@ -162,6 +162,7 @@ Query application logs from SQLite.
 |-------|------|-------------|
 | `id` | number | Log entry ID |
 | `timestamp` | string | ISO 8601 timestamp |
+| `createdAt` | string | Timestamp when entry was created |
 | `level` | `LogLevel` | `error`, `warn`, `info`, `debug` |
 | `source` | `LogSource` | `json-log`, `gateway-log`, `gateway-err` |
 | `message` | string | Log message |
@@ -442,4 +443,46 @@ Common HTTP status codes:
 
 ## SSE Events
 
-Cortex also provides Server-Sent Events at `/api/events` for real-time updates. See [SSE.md](./SSE.md) for details.
+Cortex provides Server-Sent Events at `/api/events` for real-time updates.
+
+### Endpoint
+
+**GET** `/api/events`
+
+### Description
+
+Stream real-time events including:
+- Session lifecycle events (created, updated, terminated)
+- Log entries as they arrive
+- Error events
+- Agent status changes
+
+### Response
+
+Text/EventStream content type. Each event has a `type` and `data` field:
+
+```
+event: session
+data: {"agent_id":"amos","session_key":"...","status":"active"}
+
+event: log
+data: {"timestamp":"...","level":"error","message":"..."}
+
+event: error
+data: {"message":"Connection failed","timestamp":"..."}
+```
+
+### Query Parameters
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `events` | all | Comma-separated list: `session,log,error` |
+
+### Example
+
+```javascript
+const evtSource = new EventSource('http://localhost:18790/api/events?events=session,error');
+evtSource.addEventListener('session', (e) => {
+  console.log('Session event:', JSON.parse(e.data));
+});
+```
