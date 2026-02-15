@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import { collectAgents, clearSessionCache } from "../../src/server/collectors/agents";
+import { clearSessionReaderCache } from "../../src/server/services/session-file-reader";
 
 describe("collectAgents", () => {
   let tempDir: string;
@@ -10,6 +11,7 @@ describe("collectAgents", () => {
 
   beforeEach(async () => {
     clearSessionCache();
+    clearSessionReaderCache();
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-test-"));
     agentsDir = path.join(tempDir, "agents");
     await fs.mkdir(agentsDir, { recursive: true });

@@ -66,9 +66,11 @@ export interface ModelInfo {
 
 export interface SpriteStatus {
   name: string;
-  status: "running" | "idle";
+  status: "running" | "idle" | "dead" | "complete" | "stale";
   agent_count: number;
   last_seen: string | null;
+  assigned_task: string | null;
+  runtime_seconds: number | null;
 }
 
 export interface AgentStatus {

@@ -237,6 +237,60 @@ describe("log-store", () => {
     expect(result).toBeDefined();
   });
 
+  it("should sanitize FTS5 NOT operator (-)", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "error test message",
+      raw: null,
+      metadata: null,
+    });
+
+    // Query containing - should be sanitized to prevent FTS5 NOT syntax
+    // "error-test" sanitized becomes "errortest" which won't match "error test"
+    // But "error" alone will match - verifying no FTS5 syntax error occurs
+    const result = queryLogs({ q: "error-test" });
+    expect(result).toBeDefined();
+    // Searching for just "error" should work
+    const errorResult = queryLogs({ q: "error" });
+    expect(errorResult.total).toBe(1);
+  });
+
+  it("should sanitize FTS5 required operator (+)", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "important info",
+      raw: null,
+      metadata: null,
+    });
+
+    // Query containing + should be sanitized
+    const result = queryLogs({ q: "+important" });
+    expect(result.total).toBe(1);
+    expect(result.data[0]!.message).toBe("important info");
+  });
+
+  it("should sanitize FTS5 column filter braces ({)", () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "info",
+      source: "gateway-log",
+      message: "test message",
+      raw: null,
+      metadata: null,
+    });
+
+    // Query containing {col:term} syntax should be sanitized
+    const result = queryLogs({ q: "{message:test}" });
+    expect(result).toBeDefined();
+    // Should still find the message despite braces being sanitized
+    const searchResult = queryLogs({ q: "message" });
+    expect(searchResult.total).toBe(1);
+  });
+
   // ── Pagination ────────────────────────────────────────────────────────
 
   it("should paginate results correctly", () => {

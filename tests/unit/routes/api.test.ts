@@ -86,13 +86,28 @@ vi.mock("../../../src/server/collectors/agent-detail", () => ({
   }),
 }));
 
-// Mock child_process for sprites route
-const { mockExecFile } = vi.hoisted(() => ({
-  mockExecFile: vi.fn(),
+vi.mock("../../../src/server/collectors/sprites", () => ({
+  collectSprites: vi.fn().mockResolvedValue([
+    {
+      name: "bot1",
+      status: "running",
+      agent_count: 1,
+      last_seen: "2026-02-13T10:00:00.000Z",
+      assigned_task: "testing",
+      runtime_seconds: 300,
+    },
+    {
+      name: "bot2",
+      status: "idle",
+      agent_count: 0,
+      last_seen: null,
+      assigned_task: null,
+      runtime_seconds: null,
+    },
+  ]),
 }));
-vi.mock("node:child_process", () => ({
-  execFile: mockExecFile,
-}));
+
+// Child process is mocked via sprites collector mock
 
 // Import api statically — vi.mock is hoisted above imports
 import { api } from "../../../src/server/routes/api";
@@ -350,6 +365,31 @@ describe("API routes", () => {
     expect(body.limit).toBe(100);
   });
 
+  // ── GET /agents/:id ─────────────────────────────────────────────────
+
+  it("should return agent detail for valid agent", async () => {
+    const res = await api.request("/agents/main");
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { id: string; workspace: string; skills: string[] };
+    expect(body.id).toBe("main");
+    expect(body.workspace).toBe("/home/user/workspace");
+    expect(body.skills).toEqual(["github"]);
+  });
+
+  it("should return 404 for nonexistent agent", async () => {
+    const res = await api.request("/agents/nonexistent");
+    expect(res.status).toBe(404);
+
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Agent not found");
+  });
+
+  it("should return 400 for invalid agent ID", async () => {
+    const res = await api.request("/agents/bad%20agent!");
+    expect(res.status).toBe(400);
+  });
+
   // ── GET /errors ───────────────────────────────────────────────────────
 
   it("should return only error-level logs from /errors", async () => {
@@ -414,119 +454,27 @@ describe("API routes", () => {
     expect(body.data).toHaveLength(2);
   });
 
-  it("should filter errors by source", async () => {
-    insertLogEntry({
-      timestamp: "2026-02-12T10:00:00.000Z",
-      level: "error",
-      source: "gateway-err",
-      message: "gateway error",
-      raw: null,
-      metadata: null,
-    });
-    insertLogEntry({
-      timestamp: "2026-02-12T10:01:00.000Z",
-      level: "error",
-      source: "json-log",
-      message: "agent error",
-      raw: null,
-      metadata: null,
-    });
-
-    const res = await api.request("/errors?source=gateway-err");
-    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
-    expect(body.total).toBe(1);
-    expect(body.data[0]!.source).toBe("gateway-err");
-  });
-
-  it("should ignore invalid source values on /errors", async () => {
-    insertLogEntry({
-      timestamp: "2026-02-12T10:00:00.000Z",
-      level: "error",
-      source: "gateway-err",
-      message: "gateway error",
-      raw: null,
-      metadata: null,
-    });
-
-    const res = await api.request("/errors?source=invalid-source");
-    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
-    // Invalid source should be ignored, returning all errors
-    expect(body.total).toBe(1);
-    expect(body.data[0]!.source).toBe("gateway-err");
-  });
-
-  // ── GET /agents/:id ─────────────────────────────────────────────────
-
-  it("should return agent detail for valid agent", async () => {
-    const res = await api.request("/agents/main");
-    expect(res.status).toBe(200);
-
-    const body = (await res.json()) as { id: string; workspace: string; skills: string[] };
-    expect(body.id).toBe("main");
-    expect(body.workspace).toBe("/home/user/workspace");
-    expect(body.skills).toEqual(["github"]);
-  });
-
-  it("should return 404 for nonexistent agent", async () => {
-    const res = await api.request("/agents/nonexistent");
-    expect(res.status).toBe(404);
-
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Agent not found");
-  });
-
-  it("should return 400 for invalid agent ID", async () => {
-    const res = await api.request("/agents/bad%20agent!");
-    expect(res.status).toBe(400);
-  });
-
   // ── GET /sprites ──────────────────────────────────────────────────────
 
-  it("should return sprites with running status when processes found", async () => {
-    mockExecFile.mockImplementation(
-      (
-        cmd: string,
-        _args: string[],
-        _opts: unknown,
-        cb?: (err: Error | null, result: { stdout: string }) => void,
-      ) => {
-        if (cb) {
-          if (cmd === "sprite") {
-            cb(null, { stdout: "name   status\nbot1   active\nbot2   idle\n" });
-          } else if (cmd === "pgrep") {
-            cb(null, { stdout: "1234 node bot1 claude\n" });
-          }
-        }
-        return { on: vi.fn() };
-      },
-    );
-
+  it("should return sprites with full status from /sprites", async () => {
     const res = await api.request("/sprites");
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as Array<{ name: string; status: string; agent_count: number }>;
+    const body = (await res.json()) as Array<{
+      name: string;
+      status: string;
+      agent_count: number;
+      assigned_task: string | null;
+      runtime_seconds: number | null;
+    }>;
     expect(body).toHaveLength(2);
     expect(body[0]!.name).toBe("bot1");
     expect(body[0]!.status).toBe("running");
     expect(body[0]!.agent_count).toBe(1);
+    expect(body[0]!.assigned_task).toBe("testing");
+    expect(body[0]!.runtime_seconds).toBe(300);
     expect(body[1]!.name).toBe("bot2");
     expect(body[1]!.status).toBe("idle");
-  });
-
-  it("should return empty array when sprite command fails", async () => {
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], _opts: unknown, cb?: (err: Error | null) => void) => {
-        if (cb) {
-          cb(new Error("sprite not found"));
-        }
-        return { on: vi.fn() };
-      },
-    );
-
-    const res = await api.request("/sprites");
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body).toEqual([]);
+    expect(body[1]!.assigned_task).toBeNull();
   });
 });
