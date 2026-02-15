@@ -5,13 +5,10 @@ import { collectCrons } from "../collectors/cron.js";
 import { collectModels } from "../collectors/models.js";
 import { collectAgents } from "../collectors/agents.js";
 import { collectAgentDetail } from "../collectors/agent-detail.js";
+import { collectSprites } from "../collectors/sprites.js";
 import { config } from "../config.js";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { queryLogs } from "../services/log-store.js";
-import type { LogLevel, LogSource, SpriteStatus, PaginatedResponse, SessionInfo, LogEntry } from "../../shared/types.js";
-
-const execFileAsync = promisify(execFile);
+import type { LogLevel, LogSource } from "../../shared/types.js";
 
 /**
  * API router for Cortex monitoring and management endpoints.
@@ -268,35 +265,13 @@ api.get("/errors", (c) => {
 
 /**
  * GET /api/sprites
- * List all Fly.io sprites and their current status.
- * Uses execFile to prevent shell injection when calling sprite CLI.
+ * List all sprites and their current status including task and runtime info.
  *
  * @returns {SpriteStatus[]} Array of sprite status information
- * @example
- * // Response
- * [{ "name": "sprite-001", "status": "running", "agent_count": 2, "last_seen": "2024-01-15T..." }]
  */
 api.get("/sprites", async (c) => {
   try {
-    const { stdout } = await execFileAsync("sprite", ["list"], { timeout: 15000 });
-    const lines = stdout.split("\n").filter((l) => l.trim() && !l.startsWith("name"));
-
-    const { stdout: psOut } = await execFileAsync("pgrep", ["-af", "claude|codex"], {
-      timeout: 5000,
-    }).catch(() => ({ stdout: "" }));
-    const psLines = psOut.split("\n").filter((l) => l.trim());
-
-    const sprites: SpriteStatus[] = lines.map((line) => {
-      const name = line.split(/\s+/)[0] || "unknown";
-      const agentCount = psLines.filter((p) => p.includes(name)).length;
-      return {
-        name,
-        status: agentCount > 0 ? ("running" as const) : ("idle" as const),
-        agent_count: agentCount,
-        last_seen: agentCount > 0 ? new Date().toISOString() : null,
-      };
-    });
-
+    const sprites = await collectSprites(config.openclawHome);
     return c.json(sprites);
   } catch (err) {
     console.error("[api/sprites] Failed to collect sprite status:", err);

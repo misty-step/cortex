@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Overview } from "./views/Overview";
 import { Sessions } from "./views/Sessions";
+import { Sprites } from "./views/Sprites";
 import { Logs } from "./views/Logs";
 import { Crons } from "./views/Crons";
 import { Errors } from "./views/Errors";
@@ -17,6 +18,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Overview />} />
             <Route path="/sessions" element={<Sessions />} />
+            <Route path="/sprites" element={<Sprites />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/crons" element={<Crons />} />
             <Route path="/errors" element={<Errors />} />

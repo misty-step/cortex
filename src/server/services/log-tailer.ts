@@ -23,6 +23,7 @@ export async function startLogTailer(
 
   const gwErrPath = path.join(logDir, "gateway.err.log");
   tailFile(gwErrPath, parseGatewayErrLine, "gateway-err", onBatch);
+
   try {
     const files = await fs.readdir(jsonLogDir);
     const today = new Date().toISOString().slice(0, 10);
