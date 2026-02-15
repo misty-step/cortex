@@ -74,7 +74,6 @@ Bun.serve({
   fetch: app.fetch,
   hostname: "127.0.0.1",
   port: config.port,
-  hostname: "127.0.0.1",
 });
 console.log(`Cortex v2 ready at http://localhost:${config.port}`);
 
