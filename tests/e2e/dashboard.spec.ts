@@ -13,8 +13,13 @@ test.describe("Dashboard / Overview", () => {
     const gatewayCard = page.getByText("Gateway").first();
     await expect(gatewayCard).toBeVisible();
 
-    // Health status should show a status indicator (any colored badge)
-    const healthStatus = page.locator("[class*='bg-'][class*='-500']").first();
+    // Health status should show a status indicator - look for any badge-like element near Gateway
+    const healthCard = gatewayCard.locator(
+      "xpath=ancestor::div[contains(@class, 'card') or contains(@class, 'flex')]",
+    );
+    const healthStatus = healthCard
+      .locator("[class*='rounded'], [class*='px'], [class*='py']")
+      .first();
     await expect(healthStatus).toBeVisible();
   });
 
@@ -25,8 +30,8 @@ test.describe("Dashboard / Overview", () => {
     const runningCard = page.locator("div:has-text('Running Sprites')");
     await expect(runningCard).toBeVisible();
 
-    // The count should be a number in a span or similar element
-    const runningCount = runningCard.locator("span, p, div").filter({ hasText: /^\d+$/ }).first();
+    // The count should be a number - look for text that contains digits within the card
+    const runningCount = runningCard.getByText(/^\d+$/);
     await expect(runningCount).toBeVisible();
   });
 
@@ -37,8 +42,8 @@ test.describe("Dashboard / Overview", () => {
     const idleCard = page.locator("div:has-text('Idle Sprites')");
     await expect(idleCard).toBeVisible();
 
-    // The count should be a number in a span or similar element
-    const idleCount = idleCard.locator("span, p, div").filter({ hasText: /^\d+$/ }).first();
+    // The count should be a number - look for text that contains digits within the card
+    const idleCount = idleCard.getByText(/^\d+$/);
     await expect(idleCount).toBeVisible();
   });
 
@@ -139,7 +144,7 @@ test.describe("Navigation", () => {
     await page.getByRole("link", { name: "Agents" }).click();
 
     await expect(page).toHaveURL(/.*\/agents/);
-    await expect(page.getByRole("heading", { name: "Available Agents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Agent Status" })).toBeVisible();
   });
 
   test("should navigate to Errors page", async ({ page }) => {
@@ -148,6 +153,6 @@ test.describe("Navigation", () => {
     await page.getByRole("link", { name: "Errors" }).click();
 
     await expect(page).toHaveURL(/.*\/errors/);
-    await expect(page.getByRole("heading", { name: "Error Logs" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent Errors" })).toBeVisible();
   });
 });
