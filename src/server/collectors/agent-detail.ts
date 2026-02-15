@@ -6,6 +6,10 @@ import type {
   AgentModelInfo,
   AgentAuthProfile,
   AgentSessionEntry,
+  AgentCapabilities,
+  ExecSecurity,
+  ExecAsk,
+  ExecHost,
 } from "../../shared/types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -21,6 +25,10 @@ interface MasterAgentEntry {
   workspace: string | null;
   model: { primary: string; fallbacks: string[] } | null;
   subagents: string[];
+  execSecurity: ExecSecurity | null;
+  execAsk: ExecAsk | null;
+  execHost: ExecHost | null;
+  hasInternet: boolean;
 }
 
 function parseMasterConfig(data: unknown, agentId: string): MasterAgentEntry | null {
@@ -49,10 +57,39 @@ function parseMasterConfig(data: unknown, agentId: string): MasterAgentEntry | n
     }
   }
 
+  const validExecSecurity = new Set<ExecSecurity>(["deny", "allowlist", "full"]);
+  const validExecAsk = new Set<ExecAsk>(["off", "on-miss", "always"]);
+  const validExecHost = new Set<ExecHost>(["sandbox", "gateway", "node"]);
+
+  let execSecurity: ExecSecurity | null = null;
+  let execAsk: ExecAsk | null = null;
+  let execHost: ExecHost | null = null;
+
+  if (isRecord(entry.exec)) {
+    const sec = entry.exec.security;
+    if (typeof sec === "string" && validExecSecurity.has(sec as ExecSecurity)) {
+      execSecurity = sec as ExecSecurity;
+    }
+    const ask = entry.exec.ask;
+    if (typeof ask === "string" && validExecAsk.has(ask as ExecAsk)) {
+      execAsk = ask as ExecAsk;
+    }
+    const host = entry.exec.host;
+    if (typeof host === "string" && validExecHost.has(host as ExecHost)) {
+      execHost = host as ExecHost;
+    }
+  }
+
+  const hasInternet = entry.internet === true;
+
   return {
     workspace: typeof entry.workspace === "string" ? entry.workspace : null,
     model,
     subagents,
+    execSecurity,
+    execAsk,
+    execHost,
+    hasInternet,
   };
 }
 
@@ -180,14 +217,25 @@ export async function collectAgentDetail(
     // Missing sessions file
   }
 
+  const subagents = masterEntry?.subagents ?? [];
+  const capabilities: AgentCapabilities = {
+    execSecurity: masterEntry?.execSecurity ?? null,
+    execAsk: masterEntry?.execAsk ?? null,
+    execHost: masterEntry?.execHost ?? null,
+    hasInternet: masterEntry?.hasInternet ?? false,
+    hasSubagents: subagents.length > 0,
+    reasoning: availableModels.some((m) => m.reasoning),
+  };
+
   return {
     ...base,
     workspace: masterEntry?.workspace ?? null,
     model: masterEntry?.model ?? null,
-    subagents: masterEntry?.subagents ?? [],
+    subagents,
     availableModels,
     authProfiles,
     sessions,
     skills,
+    capabilities,
   };
 }
