@@ -74,7 +74,7 @@ app.use(
 app.use(
   "*",
   cors({
-    origin: [`http://localhost:${config.port}`, "http://localhost:5173"],
+    origin: config.allowedOrigins,
   }),
 );
 

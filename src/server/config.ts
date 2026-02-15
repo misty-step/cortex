@@ -34,6 +34,9 @@ export function validatePath(name: string, value: string): string {
 }
 
 const port = validatePort("CORTEX_PORT", process.env.CORTEX_PORT, 18790);
+const allowedOrigins = process.env.CORTEX_ALLOWED_ORIGINS
+  ? process.env.CORTEX_ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+  : [`http://localhost:${port}`, "http://localhost:5173"];
 const gatewayPort = validatePort("GATEWAY_PORT", process.env.GATEWAY_PORT, 18789);
 const openclawHome = process.env.OPENCLAW_HOME ?? path.join(HOME, ".openclaw");
 const logDir = process.env.OPENCLAW_LOG_DIR ?? "/tmp/openclaw";
@@ -54,4 +57,5 @@ export const config = {
   dbPath,
   maxLogEntries: 10_000,
   maxErrors: 1_000,
+  allowedOrigins,
 } as const;
