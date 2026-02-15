@@ -1,9 +1,10 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { sse } from "../../../src/server/routes/sse";
 import {
   broadcast,
   getConnectionCount,
   MAX_CONNECTIONS,
+  resetConnectionCount,
 } from "../../../src/server/services/event-bus";
 import type { LogEntry } from "../../../src/shared/types";
 
@@ -16,6 +17,10 @@ describe("SSE routes", () => {
     controllers.push(ac);
     return sse.request(path, { signal: ac.signal });
   }
+
+  beforeEach(() => {
+    resetConnectionCount();
+  });
 
   afterEach(() => {
     for (const ac of controllers) ac.abort();

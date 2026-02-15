@@ -9,8 +9,18 @@ type EventHandler = (event: SSEEvent) => void;
 const listeners = new Set<EventHandler>();
 
 // Connection limiting for SSE endpoint
-export const MAX_CONNECTIONS = 20;
+const DEFAULT_MAX_CONNECTIONS = 20;
+export const MAX_CONNECTIONS =
+  parseInt(process.env.MAX_SSE_CONNECTIONS ?? "", 10) || DEFAULT_MAX_CONNECTIONS;
 let activeConnectionCount = 0;
+
+/**
+ * Reset the connection count (for testing only).
+ * @internal - should only be used in test environment
+ */
+export function resetConnectionCount(): void {
+  activeConnectionCount = 0;
+}
 
 export function subscribe(handler: EventHandler): () => void {
   listeners.add(handler);
