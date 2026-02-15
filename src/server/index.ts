@@ -4,6 +4,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
+import { secureHeaders } from "hono/secure-headers";
+import { HTTPException } from "hono/http-exception";
 import { config } from "./config.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -50,11 +52,29 @@ startLogTailer(logDir, config.logDir, (entries) => {
 // ─── App ─────────────────────────────────────────────────────────────────────
 const app = new Hono();
 
-// Middleware
+// Middleware - set security headers individually to avoid default CSP
+// The default CSP includes upgrade-insecure-requests which breaks local HTTP
+app.use(
+  "*",
+  secureHeaders({
+    strictTransportSecurity: true,
+    xContentTypeOptions: true,
+    xDnsPrefetchControl: true,
+    xFrameOptions: true,
+    xDownloadOptions: true,
+    xPermittedCrossDomainPolicies: true,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: true,
+    crossOriginOpenerPolicy: true,
+    originAgentCluster: true,
+    referrerPolicy: true,
+    removePoweredBy: true,
+  }),
+);
 app.use(
   "*",
   cors({
-    origin: [`http://localhost:${config.port}`, "http://localhost:5173"],
+    origin: config.allowedOrigins,
   }),
 );
 
@@ -70,10 +90,20 @@ app.route("/api", sse);
 // Ping endpoint
 app.get("/api/ping", (c) => c.json({ ok: true, timestamp: Date.now() }));
 
+// Global error handler
+app.onError((err, c) => {
+  // Pass through Hono's HTTPException to preserve status codes (e.g., 400, 401, 404)
+  if (err instanceof HTTPException) {
+    return err.getResponse();
+  }
+  console.error(`[cortex] Unhandled error: ${c.req.method} ${c.req.url}`, err);
+  return c.json({ error: "Internal server error" }, 500);
+});
+
 Bun.serve({
   fetch: app.fetch,
-  port: config.port,
   hostname: "127.0.0.1",
+  port: config.port,
 });
 console.log(`Cortex v2 ready at http://localhost:${config.port}`);
 
