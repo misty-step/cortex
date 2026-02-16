@@ -5,27 +5,23 @@ import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
 import { relativeTime } from "../lib/formatters";
+import type { PaginatedResponse } from "../../shared/types";
 
 export function Crons() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ limit: "10000" });
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
-  const qs = params.toString();
-  const url = qs ? `/api/crons?${qs}` : "/api/crons";
-  const {
-    data: raw,
-    loading,
-    error,
-  } = useApi<Record<string, unknown>[] | { data: Record<string, unknown>[] }>(url);
+  const url = `/api/crons?${params.toString()}`;
+  const { data, loading, error } = useApi<PaginatedResponse<Record<string, unknown>>>(url);
 
   // Server handles text search via ?q=; status filter is client-side only
   const filteredCrons = useMemo(() => {
-    if (!raw || error) return [];
-    const crons = Array.isArray(raw) ? raw : (raw.data ?? []);
+    if (!data || error) return [];
+    const crons = data.data;
     if (!statusFilter) return crons;
     return crons.filter((c) => c.status === statusFilter || c.last_status === statusFilter);
-  }, [raw, error, statusFilter]);
+  }, [data, error, statusFilter]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load cron jobs</div>;

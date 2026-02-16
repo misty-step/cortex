@@ -6,23 +6,19 @@ import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
 import { relativeTime } from "../lib/formatters";
+import type { PaginatedResponse } from "../../shared/types";
 
 export function Sessions() {
   const [searchQuery, setSearchQuery] = useState("");
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ limit: "10000" });
   if (searchQuery.trim()) params.set("q", searchQuery.trim());
-  const qs = params.toString();
-  const url = qs ? `/api/sessions?${qs}` : "/api/sessions";
-  const {
-    data: raw,
-    loading,
-    error,
-  } = useApi<Record<string, unknown>[] | { data: Record<string, unknown>[] }>(url);
+  const url = `/api/sessions?${params.toString()}`;
+  const { data, loading, error } = useApi<PaginatedResponse<Record<string, unknown>>>(url);
 
   const filteredSessions = useMemo(() => {
-    if (!raw || error) return [];
-    return Array.isArray(raw) ? raw : (raw.data ?? []);
-  }, [raw, error]);
+    if (!data || error) return [];
+    return data.data;
+  }, [data, error]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load sessions</div>;

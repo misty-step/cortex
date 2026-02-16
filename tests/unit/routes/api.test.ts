@@ -43,7 +43,7 @@ vi.mock("../../../src/server/collectors/cron", () => ({
 vi.mock("../../../src/server/collectors/models", () => ({
   collectModels: vi
     .fn()
-    .mockReturnValue([
+    .mockResolvedValue([
       { id: "test/model", name: "Test Model", provider: "test", status: "available" },
     ]),
 }));
@@ -106,8 +106,6 @@ vi.mock("../../../src/server/collectors/sprites", () => ({
     },
   ]),
 }));
-
-// Child process is mocked via sprites collector mock
 
 // Import api statically — vi.mock is hoisted above imports
 import { api } from "../../../src/server/routes/api";
@@ -178,13 +176,31 @@ describe("API routes", () => {
 
   // ── GET /models ───────────────────────────────────────────────────────
 
-  it("should return models from /models", async () => {
+  it("should return paginated models from /models", async () => {
     const res = await api.request("/models");
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as Array<Record<string, unknown>>;
-    expect(body).toHaveLength(1);
-    expect(body[0]!.id).toBe("test/model");
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+      total: number;
+      page: number;
+      limit: number;
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.total).toBe(1);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(100);
+    expect(body.data[0]!.id).toBe("test/model");
+  });
+
+  it("should respect limit and page on /models", async () => {
+    const res = await api.request("/models?limit=1&page=1");
+    const body = (await res.json()) as {
+      data: unknown[];
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
   });
 
   // ── GET /crons ────────────────────────────────────────────────────────
@@ -436,7 +452,6 @@ describe("API routes", () => {
   });
 
   it("should respect page parameter on /errors", async () => {
-    // Clear existing entries and add fresh ones
     for (let i = 0; i < 5; i++) {
       insertLogEntry({
         timestamp: `2026-02-12T10:0${i}:00.000Z`,
@@ -454,27 +469,125 @@ describe("API routes", () => {
     expect(body.data).toHaveLength(2);
   });
 
+  it("should filter errors by source", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+    insertLogEntry({
+      timestamp: "2026-02-12T10:01:00.000Z",
+      level: "error",
+      source: "json-log",
+      message: "agent error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=gateway-err");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
+  it("should ignore invalid source values on /errors", async () => {
+    insertLogEntry({
+      timestamp: "2026-02-12T10:00:00.000Z",
+      level: "error",
+      source: "gateway-err",
+      message: "gateway error",
+      raw: null,
+      metadata: null,
+    });
+
+    const res = await api.request("/errors?source=invalid-source");
+    const body = (await res.json()) as { data: Array<{ source: string }>; total: number };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.source).toBe("gateway-err");
+  });
+
+  // ── GET /agents ───────────────────────────────────────────────────────
+
+  it("should return paginated agents from /agents", async () => {
+    const res = await api.request("/agents");
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+      total: number;
+      page: number;
+      limit: number;
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.total).toBe(1);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(100);
+    expect(body.data[0]!.id).toBe("main");
+  });
+
+  it("should respect limit and page on /agents", async () => {
+    const res = await api.request("/agents?limit=1&page=1");
+    const body = (await res.json()) as {
+      data: unknown[];
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("should filter agents by search query", async () => {
+    const res = await api.request("/agents?q=Kaylee");
+    const body = (await res.json()) as {
+      data: Array<{ name: string }>;
+      total: number;
+    };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.name).toBe("Kaylee");
+  });
+
   // ── GET /sprites ──────────────────────────────────────────────────────
 
-  it("should return sprites with full status from /sprites", async () => {
+  it("should return paginated sprites from /sprites", async () => {
     const res = await api.request("/sprites");
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as Array<{
-      name: string;
-      status: string;
-      agent_count: number;
-      assigned_task: string | null;
-      runtime_seconds: number | null;
-    }>;
-    expect(body).toHaveLength(2);
-    expect(body[0]!.name).toBe("bot1");
-    expect(body[0]!.status).toBe("running");
-    expect(body[0]!.agent_count).toBe(1);
-    expect(body[0]!.assigned_task).toBe("testing");
-    expect(body[0]!.runtime_seconds).toBe(300);
-    expect(body[1]!.name).toBe("bot2");
-    expect(body[1]!.status).toBe("idle");
-    expect(body[1]!.assigned_task).toBeNull();
+    const body = (await res.json()) as {
+      data: Array<{
+        name: string;
+        status: string;
+        agent_count: number;
+        assigned_task: string | null;
+        runtime_seconds: number | null;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      hasMore: boolean;
+    };
+    expect(body.data).toHaveLength(2);
+    expect(body.total).toBe(2);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(100);
+    expect(body.data[0]!.name).toBe("bot1");
+    expect(body.data[0]!.status).toBe("running");
+    expect(body.data[0]!.agent_count).toBe(1);
+    expect(body.data[0]!.assigned_task).toBe("testing");
+    expect(body.data[0]!.runtime_seconds).toBe(300);
+    expect(body.data[1]!.name).toBe("bot2");
+    expect(body.data[1]!.status).toBe("idle");
+    expect(body.data[1]!.assigned_task).toBeNull();
+  });
+
+  it("should filter sprites by search query", async () => {
+    const res = await api.request("/sprites?q=bot1");
+    const body = (await res.json()) as {
+      data: Array<{ name: string }>;
+      total: number;
+    };
+    expect(body.total).toBe(1);
+    expect(body.data[0]!.name).toBe("bot1");
   });
 });

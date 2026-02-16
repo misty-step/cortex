@@ -3,11 +3,13 @@ import { DataTable } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { relativeTime, formatDuration } from "../lib/formatters";
-import type { SpriteStatus } from "../../shared/types";
+import type { SpriteStatus, PaginatedResponse } from "../../shared/types";
 
 export function Sprites() {
-  const { data, loading, error } = useApi<SpriteStatus[]>("/api/sprites");
-  const sprites = data ?? [];
+  const { data, loading, error } = useApi<PaginatedResponse<SpriteStatus>>(
+    "/api/sprites?limit=10000",
+  );
+  const sprites = data?.data ?? [];
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">Failed to load sprites</div>;

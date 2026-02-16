@@ -5,12 +5,14 @@ import { StatusBadge } from "../components/StatusBadge";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
 import { filterByText } from "../lib/formatters";
+import type { PaginatedResponse } from "../../shared/types";
 
 export function Models() {
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
-  const { data, loading, error } = useApi<Record<string, unknown>[]>("/api/models");
-  const models = useMemo(() => data ?? [], [data]);
+  const { data, loading, error } =
+    useApi<PaginatedResponse<Record<string, unknown>>>("/api/models?limit=10000");
+  const models = useMemo(() => data?.data ?? [], [data]);
 
   // Get unique providers for filter dropdown (filter out undefined/null)
   const providers = [...new Set(models.map((m) => m.provider as string).filter(Boolean))].sort();

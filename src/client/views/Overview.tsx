@@ -5,7 +5,7 @@ import { DataTable } from "../components/DataTable";
 import { ExportButton } from "../components/ExportButton";
 import { SearchBar } from "../components/SearchBar";
 import { filterByText, relativeTime } from "../lib/formatters";
-import type { ExecApprovalSummary } from "../../shared/types";
+import type { SpriteStatus, PaginatedResponse, ExecApprovalSummary } from "../../shared/types";
 
 export function Overview() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,10 +19,10 @@ export function Overview() {
     data: sprites,
     loading: spritesLoading,
     error: spritesError,
-  } = useApi<Record<string, unknown>[]>("/api/sprites");
+  } = useApi<PaginatedResponse<SpriteStatus>>("/api/sprites?limit=10000");
   const { data: approvals } = useApi<ExecApprovalSummary>("/api/approvals");
 
-  const spriteList = useMemo(() => sprites ?? [], [sprites]);
+  const spriteList = useMemo(() => sprites?.data ?? [], [sprites]);
   const runningSprites = spriteList.filter((s) => s.status === "running").length;
   const idleSprites = spriteList.filter((s) => s.status === "idle").length;
 
